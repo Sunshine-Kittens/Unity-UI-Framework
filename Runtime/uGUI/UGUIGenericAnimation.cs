@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace UIFramework.UGUI
 {
-    public class UGUIGenericWindowAnimation : GenericWindowAnimation
+    public class UGUIGenericAnimation : GenericWidgetAnimation
     {
         private RectTransform _displayRectTransform = null;
         private RectTransform _rectTransform = null;
@@ -17,8 +17,8 @@ namespace UIFramework.UGUI
         private Vector3 _offDisplayBottom = Vector3.zero;
         private Vector3 _offDisplayTop = Vector3.zero;
 
-        public UGUIGenericWindowAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition,
-            CanvasGroup canvasGroup, GenericWindowAnimationType type) : base(type)
+        public UGUIGenericAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition,
+            CanvasGroup canvasGroup, GenericAnimation type) : base(type)
         {
             if (displayRectTransform == null)
             {
@@ -48,16 +48,16 @@ namespace UIFramework.UGUI
 
             switch (Type)
             {
-                case GenericWindowAnimationType.SlideFromLeft:
+                case GenericAnimation.SlideFromLeft:
                     CalculateOffDisplayLeft();
                     break;
-                case GenericWindowAnimationType.SlideFromRight:
+                case GenericAnimation.SlideFromRight:
                     CalculateOffDisplayRight();
                     break;
-                case GenericWindowAnimationType.SlideFromBottom:
+                case GenericAnimation.SlideFromBottom:
                     CalculateOffDisplayBottom();
                     break;
-                case GenericWindowAnimationType.SlideFromTop:
+                case GenericAnimation.SlideFromTop:
                     CalculateOffDisplayTop();
                     break;
             }
@@ -113,18 +113,18 @@ namespace UIFramework.UGUI
             }
         }
 
-        protected override bool IsSupportedType(GenericWindowAnimationType type)
+        protected override bool IsSupportedType(GenericAnimation type)
         {
             switch (type)
             {
                 default: return false;
-                case GenericWindowAnimationType.Fade:
-                case GenericWindowAnimationType.SlideFromLeft:
-                case GenericWindowAnimationType.SlideFromRight:
-                case GenericWindowAnimationType.SlideFromTop:
-                case GenericWindowAnimationType.SlideFromBottom:
-                case GenericWindowAnimationType.Flip:
-                case GenericWindowAnimationType.Expand:
+                case GenericAnimation.Fade:
+                case GenericAnimation.SlideFromLeft:
+                case GenericAnimation.SlideFromRight:
+                case GenericAnimation.SlideFromTop:
+                case GenericAnimation.SlideFromBottom:
+                case GenericAnimation.Flip:
+                case GenericAnimation.Expand:
                     return true;
             }
         }

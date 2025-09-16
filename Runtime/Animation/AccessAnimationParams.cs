@@ -6,7 +6,7 @@ namespace UIFramework
     {        
         public float Length { get; private set; }
         public EasingMode EasingMode { get; private set; }
-        public ImplicitWindowAnimation ImplicitAnimation { get; private set; }
+        public ImplicitAnimation ImplicitAnimation { get; private set; }
 
         public AccessAnimationParams(float length)
             : this(null, length, EasingMode.Linear) { }
@@ -14,17 +14,17 @@ namespace UIFramework
         public AccessAnimationParams(float length, EasingMode easingMode)
             : this(null, length, easingMode) { }
 
-        public AccessAnimationParams(ImplicitWindowAnimation animation, float length)
+        public AccessAnimationParams(ImplicitAnimation animation, float length)
             : this(animation, length, EasingMode.Linear) { }        
 
-        public AccessAnimationParams(ImplicitWindowAnimation animation, float length, EasingMode easingMode)
+        public AccessAnimationParams(ImplicitAnimation animation, float length, EasingMode easingMode)
         {
             Length = length;
             ImplicitAnimation = animation;
             EasingMode = easingMode;            
         }
 
-        private AccessAnimation GetWindowAnimation(IWindow window)
+        private WidgetAnimation GetWindowAnimation(IWindow window)
         {
             if(ImplicitAnimation == null)
             {

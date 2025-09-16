@@ -5,20 +5,20 @@ using UnityEngine.Serialization;
 
 namespace UIFramework.UIToolkit
 {
-    [RequireComponent(typeof(UIBehaviourDocument))]
-    public class ScreenCollector : ScreenCollectorComponent
+    [RequireComponent(typeof(WidgetDocumentSource))]
+    public class ScreenCollector : UIFramework.ScreenCollector
     {
         [SerializeField, FormerlySerializedAs("_collectableDefinitions")] private CollectableBehaviour<Screen>[] _definitions = new CollectableBehaviour<Screen>[0];
-        private UIBehaviourDocument _uiBehaviourDocument = null;
+        private WidgetDocumentSource _widgetDocumentSource = null;
         private IScreen[] _cachedScreens = null;
 
-        private UIBehaviourDocument GetUIBehaviourDocument()
+        private WidgetDocumentSource GetUIBehaviourDocument()
         {
-            if (_uiBehaviourDocument == null)
+            if (_widgetDocumentSource == null)
             {
-                _uiBehaviourDocument = GetComponent<UIBehaviourDocument>();
+                _widgetDocumentSource = GetComponent<WidgetDocumentSource>();
             }
-            return _uiBehaviourDocument;
+            return _widgetDocumentSource;
         }
 
         public override IScreen[] Collect()
@@ -28,8 +28,8 @@ namespace UIFramework.UIToolkit
                 return _cachedScreens;
             }
 
-            UIBehaviourDocument behaviourDocument = GetUIBehaviourDocument();
-            if (behaviourDocument == null)
+            WidgetDocumentSource behaviourDocumentSource = GetUIBehaviourDocument();
+            if (behaviourDocumentSource == null)
             {
                 throw new InvalidOperationException("UIBehaviourDocument is null.");
             }
@@ -42,7 +42,7 @@ namespace UIFramework.UIToolkit
             _cachedScreens = new IScreen[_definitions.Length];
             for (int i = 0; i < _definitions.Length; i++)
             {
-                IScreen screen = _definitions[i].Type.CreateInstance(behaviourDocument, _definitions[i].Identifier);
+                IScreen screen = _definitions[i].Type.CreateInstance(behaviourDocumentSource, _definitions[i].Identifier);
                 _cachedScreens[i] = screen;
             }
             return _cachedScreens;

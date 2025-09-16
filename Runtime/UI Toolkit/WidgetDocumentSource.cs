@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace UIFramework.UIToolkit
 {
     [RequireComponent(typeof(UIDocument))]
-    public class UIBehaviourDocument : MonoBehaviour
+    public class WidgetDocumentSource : MonoBehaviour
     {
         public UIDocument Document
         {

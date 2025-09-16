@@ -4,9 +4,9 @@ using System;
 
 namespace UIFramework
 {
-    public class TabController : IUIBehaviour
+    public class TabController : IWidget
     {
-        public BehaviourState State { get; private set; } = BehaviourState.Uninitialized;
+        public WidgetState State { get; private set; } = WidgetState.Uninitialized;
 
         private ObjectTypeMap<IWindow> _windows = null;
 
@@ -31,16 +31,16 @@ namespace UIFramework
 
         public void Initialize() 
         {
-            State = BehaviourState.Initialized;
+            State = WidgetState.Initialized;
         }
 
-        public void UpdateUI(float deltaTime)
+        public void UpdateWidget(float deltaTime)
         {
             for (int i = 0; i < _windows.Array.Length; i++)
             {
                 if (_windows.Array[i].IsVisible)
                 {
-                    _windows.Array[i].UpdateUI(deltaTime);
+                    _windows.Array[i].UpdateWidget(deltaTime);
                 }
             }
         }
@@ -51,7 +51,7 @@ namespace UIFramework
             {
                 _windows.Array[i].Terminate();
             }
-            State = BehaviourState.Terminated;
+            State = WidgetState.Terminated;
         }
 
         public void Clear()
@@ -90,7 +90,7 @@ namespace UIFramework
             }
         }
 
-        public IWindow SetActive<WindowType>(GenericWindowAnimationType type = GenericWindowAnimationType.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
+        public IWindow SetActive<WindowType>(GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
         {
             return SetActiveInternal<WindowType>(new AccessAnimationParams(type, length, easingMode));
         }
@@ -100,7 +100,7 @@ namespace UIFramework
             return SetActiveInternal<WindowType>(in accessPlayable);
         }
 
-        public IWindow SetActive<WindowType>(object data, GenericWindowAnimationType type = GenericWindowAnimationType.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
+        public IWindow SetActive<WindowType>(object data, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
         {
             IWindow window = SetActiveInternal<WindowType>(new AccessAnimationParams(type, length, easingMode));
             window.SetData(data);
@@ -114,7 +114,7 @@ namespace UIFramework
             return window;
         }
 
-        public IWindow SetActiveIndex(int index, GenericWindowAnimationType type = GenericWindowAnimationType.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
+        public IWindow SetActiveIndex(int index, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
         {
             return SetActiveIndexInternal(index, new AccessAnimationParams(type, length, easingMode));
         }
@@ -124,7 +124,7 @@ namespace UIFramework
             return SetActiveIndexInternal(index, in accessPlayable);
         }
 
-        public IWindow SetActiveIndex(int index, object data, GenericWindowAnimationType type = GenericWindowAnimationType.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
+        public IWindow SetActiveIndex(int index, object data, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
         {
             IWindow window = SetActiveIndexInternal(index, new AccessAnimationParams(type, length, easingMode));
             window.SetData(data);

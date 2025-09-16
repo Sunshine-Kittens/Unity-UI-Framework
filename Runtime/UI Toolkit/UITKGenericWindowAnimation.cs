@@ -3,11 +3,11 @@ using UnityEngine.UIElements;
 
 namespace UIFramework.UIToolkit
 {
-    public class UITKGenericWindowAnimation : GenericWindowAnimation
+    public class UitkGenericAnimation : GenericWidgetAnimation
     {
         private VisualElement _visualElement = null;
 
-        public UITKGenericWindowAnimation(VisualElement visualElement, GenericWindowAnimationType type) : base(type)
+        public UitkGenericAnimation(VisualElement visualElement, GenericAnimation type) : base(type)
         {
             if(visualElement == null)
             {
@@ -74,18 +74,18 @@ namespace UIFramework.UIToolkit
                 _visualElement.style.scale = new Scale(new Vector2(normalisedTime, normalisedTime));
         }
 
-        protected override bool IsSupportedType(GenericWindowAnimationType type)
+        protected override bool IsSupportedType(GenericAnimation type)
         {
             switch (type)
             {
                 default: return false;
-                case GenericWindowAnimationType.Fade:
-                case GenericWindowAnimationType.SlideFromLeft:
-                case GenericWindowAnimationType.SlideFromRight:
-                case GenericWindowAnimationType.SlideFromTop:
-                case GenericWindowAnimationType.SlideFromBottom:
-                case GenericWindowAnimationType.Flip:
-                case GenericWindowAnimationType.Expand:
+                case GenericAnimation.Fade:
+                case GenericAnimation.SlideFromLeft:
+                case GenericAnimation.SlideFromRight:
+                case GenericAnimation.SlideFromTop:
+                case GenericAnimation.SlideFromBottom:
+                case GenericAnimation.Flip:
+                case GenericAnimation.Expand:
                     return true;
             }
         }

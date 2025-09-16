@@ -5,20 +5,20 @@ using UnityEngine.Serialization;
 
 namespace UIFramework.UIToolkit
 {
-    [RequireComponent(typeof(UIBehaviourDocument))]
-    public class WindowCollector : WindowCollectorComponent
+    [RequireComponent(typeof(WidgetDocumentSource))]
+    public class WindowCollector : UIFramework.WindowCollector
     {
         [SerializeField, FormerlySerializedAs("_collectableDefinitions")] private CollectableBehaviour<Window>[] _definitions = new CollectableBehaviour<Window>[0];
-        private UIBehaviourDocument _uiBehaviourDocument = null;
+        private WidgetDocumentSource _widgetDocumentSource = null;
         private IWindow[] _cachedWindows = null;
 
-        private UIBehaviourDocument GetUIBehaviourDocument()
+        private WidgetDocumentSource GetUIBehaviourDocument()
         {
-            if (_uiBehaviourDocument == null)
+            if (_widgetDocumentSource == null)
             {
-                _uiBehaviourDocument = GetComponent<UIBehaviourDocument>();
+                _widgetDocumentSource = GetComponent<WidgetDocumentSource>();
             }
-            return _uiBehaviourDocument;
+            return _widgetDocumentSource;
         }
 
         public override IWindow[] Collect()
@@ -28,8 +28,8 @@ namespace UIFramework.UIToolkit
                 return _cachedWindows;
             }
 
-            UIBehaviourDocument behaviourDocument = GetUIBehaviourDocument();
-            if (behaviourDocument == null)
+            WidgetDocumentSource behaviourDocumentSource = GetUIBehaviourDocument();
+            if (behaviourDocumentSource == null)
             {
                 throw new InvalidOperationException("UIBehaviourDocument is null.");
             }
@@ -42,7 +42,7 @@ namespace UIFramework.UIToolkit
             _cachedWindows = new IWindow[_definitions.Length];
             for (int i = 0; i < _definitions.Length; i++)
             {
-                IWindow window = _definitions[i].Type.CreateInstance(behaviourDocument, _definitions[i].Identifier);
+                IWindow window = _definitions[i].Type.CreateInstance(behaviourDocumentSource, _definitions[i].Identifier);
                 _cachedWindows[i] = window;
             }
             return _cachedWindows;

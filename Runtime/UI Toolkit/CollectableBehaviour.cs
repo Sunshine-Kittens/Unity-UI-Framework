@@ -7,7 +7,7 @@ using UnityEngine.Serialization;
 namespace UIFramework.UIToolkit
 {
     [Serializable]
-    public struct CollectableBehaviour<BehaviourType> where BehaviourType : UIBehaviour
+    public struct CollectableBehaviour<BehaviourType> where BehaviourType : Widget
     {
         public string Identifier { get { return _identifier; } }
         public SubclassOf<BehaviourType> Type { get { return _type; } }
