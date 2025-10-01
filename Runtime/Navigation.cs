@@ -193,6 +193,11 @@ namespace UIFramework
             return InvokeNavigationUpdate(new Event(false, null, Active, HistoryCount, IsLocked.Value));
         }
 
+        public TNavigable PeekHistory()
+        {
+            return _navigables[_history.Peek()];
+        }
+        
         private Event InvokeNavigationUpdate(Event navigationEvent)
         {
             OnNavigationUpdate?.Invoke(navigationEvent);

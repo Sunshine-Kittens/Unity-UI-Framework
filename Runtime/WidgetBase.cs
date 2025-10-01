@@ -11,27 +11,83 @@ namespace UIFramework
     {
         private sealed class VisibilityAnimationHandle
         {
-            public AnimationPlayer AnimationPlayer { get; private set; } = null;
-            public bool ExecutionComplete { get; private set; } = false;
+            public AnimationPlayer.PlaybackData PlaybackData => _animationPlayer.Data;
+            public Awaitable AnimationAwaitable => _animationCompletionSource.Awaitable;
+            public Awaitable CompletedAwaitable => _completedCompletionSource.Awaitable;
+            
+            private readonly AwaitableCompletionSource _animationCompletionSource = new ();
+            private readonly AwaitableCompletionSource _completedCompletionSource = new ();
+            private AnimationPlayer _animationPlayer = null;
+            private bool _isCanceled = false;
+            private bool _isComplete = false;
 
-            public bool IsAnimating => (AnimationPlayer != null && AnimationPlayer.IsPlaying) || !ExecutionComplete;
+            public bool IsComplete => _isComplete || _isCanceled;
             
             private VisibilityAnimationHandle() { }
 
-            public VisibilityAnimationHandle(AnimationPlayer animationPlayer)
+            public VisibilityAnimationHandle(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
             {
-                AnimationPlayer = animationPlayer ?? throw new ArgumentNullException(nameof(animationPlayer));
+                _animationPlayer = animationPlayer ?? throw new ArgumentNullException(nameof(animationPlayer));
+                _animationPlayer.OnComplete += OnAnimationComplete;
+                cancellationToken.Register(CancelCompletionSource);
+            }
+
+            private void CancelCompletionSource()
+            {
+                _animationCompletionSource.TrySetCanceled();
+                _completedCompletionSource.TrySetCanceled();
+            }
+            
+            private void OnAnimationComplete(IAnimation animation)
+            {
+                _animationCompletionSource.SetResult();
+            }
+
+            public void CancelAnimation()
+            {
+                if (_animationPlayer != null)
+                {
+                    if (_animationPlayer.IsPlaying)
+                    {
+                        _animationPlayer.Stop();
+                        _animationCompletionSource.SetCanceled();
+                    }
+                    _animationPlayer.Release();
+                    _animationPlayer = null;
+                }
+            }
+            
+            public void Cancel()
+            {
+                CancelAnimation();
+                _isCanceled = true;
+                _completedCompletionSource.SetCanceled();
+            }
+            
+            public void CompleteAnimation()
+            {
+                if (_animationPlayer != null)
+                {
+                    if (_animationPlayer.IsPlaying)
+                    {
+                        _animationPlayer.Complete();
+                        _animationCompletionSource.SetResult();
+                    }
+                    _animationPlayer.Release();
+                    _animationPlayer = null;
+                }
             }
             
             public void Complete()
             {
-                if (AnimationPlayer.IsPlaying)
-                {
-                    AnimationPlayer.Stop();
-                }
-                AnimationPlayer.Release();
-                AnimationPlayer = null;
-                ExecutionComplete = true;
+                CompleteAnimation();
+                _isComplete = true;
+                _completedCompletionSource.SetResult();  
+            }
+
+            public AnimationPlayer DuplicateAnimationPlayer()
+            {
+                return _animationPlayer != null ? AnimationPlayer.Duplicate(_animationPlayer) :null; 
             }
         }
 
@@ -48,7 +104,7 @@ namespace UIFramework
 
         public bool IsVisible => Visibility == WidgetVisibility.Visible && Opacity > 0.0F;
 
-        public bool IsAnimating => _animationHandle != null && _animationHandle.IsAnimating;
+        public bool IsAnimating => _animationHandle != null && !_animationHandle.IsComplete;
 
         public abstract int LocalSortOrder { get; }
         public abstract int GlobalSortOrder { get; }
@@ -205,7 +261,7 @@ namespace UIFramework
                     if (interruptBehavior == InterruptBehavior.Queue)
                     {
                         _queuedAnimationCts = cts;
-                        await WaitForAnimationComplete(currentHandle, cts.Token);
+                        await currentHandle.CompletedAwaitable;
                     }
                     else
                     {
@@ -214,8 +270,9 @@ namespace UIFramework
                     
                     if (interruptBehavior == InterruptBehavior.Rewind)
                     {
-                        handle = new VisibilityAnimationHandle(AnimationPlayer.Duplicate(currentHandle.AnimationPlayer));
-                        handle.AnimationPlayer.Rewind();
+                        AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
+                        animationPlayer.Rewind();
+                        handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
                     }
                 }
                 else
@@ -225,9 +282,9 @@ namespace UIFramework
                 
                 if(handle ==  null)
                 {
-                    AnimationPlayer player = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, 
+                    AnimationPlayer animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, 
                         playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
-                    handle = new VisibilityAnimationHandle(player);
+                    handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
                 }
                 _animationCts = cts;
                 _animationHandle = handle;
@@ -236,20 +293,20 @@ namespace UIFramework
                 if (Visibility == WidgetVisibility.Visible)
                 {
                     SetActive(true);   
-                    OnShow(handle.AnimationPlayer.Data);
+                    OnShow(handle.PlaybackData);
                 }
                 else
                 {
-                    OnHide(handle.AnimationPlayer.Data);
+                    OnHide(handle.PlaybackData);
                 }
                 
                 try
                 {
-                    await WaitForAnimationComplete(handle, cts.Token);
+                    await handle.AnimationAwaitable;
                 }
                 catch (OperationCanceledException)
                 {
-                    handle.Complete();
+                    handle.Cancel();
                     throw;
                 }
                 
@@ -271,15 +328,26 @@ namespace UIFramework
         }
 
         public abstract IAnimation GetDefaultAnimation(WidgetVisibility visibility);
+        public abstract IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility);
 
-        public void SkipAnimation()
+        public async Awaitable SkipAnimation()
         {
             if (IsAnimating)
             {
-                _animationHandle.Complete();
+                VisibilityAnimationHandle handle = _animationHandle;
+                handle.CompleteAnimation();
+                await handle.CompletedAwaitable;
             }
         }
 
+        public async Awaitable RewindAnimation(CancellationToken cancellationToken = default)
+        {
+            if (IsAnimating)
+            {
+                await AnimateVisibility(Visibility ^ (WidgetVisibility)1, default(AnimationPlayable), InterruptBehavior.Rewind, cancellationToken);
+            }
+        }
+        
         public virtual void ResetAnimatedProperties() { }
 
         public void SortAbove(IWidget target)
@@ -288,10 +356,15 @@ namespace UIFramework
         }
 
         public void SortBelow(IWidget target)
-        {
+        {   
             SortAgainst(target, -1);
         }
 
+        public void SortInlineWith(IWidget target)
+        {
+            SortAgainst(target, 0);
+        }
+        
         public abstract void SetLocalSortOrder(int sortOrder);
         public abstract void SetGlobalSortOrder(int sortOrder);
         public abstract void SetRenderSortOrder(int sortOrder);
@@ -358,15 +431,6 @@ namespace UIFramework
             {
                 _children.Remove(child);
             }
-        }
-        
-        private async Awaitable WaitForAnimationComplete(VisibilityAnimationHandle handle, CancellationToken cancellationToken)
-        {
-            while (handle.AnimationPlayer.IsPlaying && !handle.ExecutionComplete && !cancellationToken.IsCancellationRequested)
-            {
-                await Awaitable.NextFrameAsync(cancellationToken);
-            }
-            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 }

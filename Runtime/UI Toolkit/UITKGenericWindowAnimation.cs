@@ -3,17 +3,13 @@ using UnityEngine.UIElements;
 
 namespace UIFramework.UIToolkit
 {
-    public class UitkGenericAnimation : GenericWidgetAnimation
+    public class UITKGenericAnimation : GenericWidgetAnimation
     {
-        private VisualElement _visualElement = null;
+        private readonly VisualElement _visualElement = null;
 
-        public UitkGenericAnimation(VisualElement visualElement, GenericAnimation type) : base(type)
+        public UITKGenericAnimation(VisualElement visualElement, GenericAnimation type) : base(type)
         {
-            if(visualElement == null)
-            {
-                throw new System.ArgumentNullException(nameof(visualElement));
-            }
-            _visualElement = visualElement;
+            _visualElement = visualElement ?? throw new System.ArgumentNullException(nameof(visualElement));
         }
 
         protected override void Fade(float normalisedTime)

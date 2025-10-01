@@ -57,7 +57,7 @@ namespace UIFramework.UIToolkit
         {
             if (Visibility == WidgetVisibility.Visible)
             {
-                Controller.TryCloseScreen();
+                Controller.HideActiveScreen();
             }
         }
     }

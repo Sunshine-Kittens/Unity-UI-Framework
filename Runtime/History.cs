@@ -7,10 +7,10 @@ namespace UIFramework
     {
         public int Count { get; private set; }
 
-        private List<Stack<T>> _history = new List<Stack<T>>();
+        private readonly List<Stack<T>> _history = new List<Stack<T>>();
 
         private int _activeGroup = 0;
-        private int _groupCapacity = 0;
+        private readonly int _groupCapacity = 0;
 
         public History(int capacity)
         {
@@ -33,15 +33,23 @@ namespace UIFramework
                 {
                     _activeGroup--;
                 }
-
                 return entry;
             }
-            else
-            {
-                throw new InvalidOperationException("The history stack is empty.");
-            }            
+            throw new InvalidOperationException("The history stack is empty.");         
         }
 
+        public T Peek()
+        {
+            for (int i = _history.Count - 1; i >= 0; i--)
+            {
+                if (_history[i].Count > 0)
+                {
+                    return _history[i].Pop();
+                }
+            }
+            return default;
+        }
+        
         public void StartNewGroup()
         {
             _history.Add(new Stack<T>(_groupCapacity));

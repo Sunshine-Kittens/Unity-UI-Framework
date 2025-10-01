@@ -82,11 +82,13 @@ namespace UIFramework
         public IAnimation GetDefaultAnimation(WidgetVisibility visibility);
         public IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility);
         
-        public void SkipAnimation();
+        public Awaitable SkipAnimation();
+        public Awaitable RewindAnimation(CancellationToken cancellationToken = default);
         public void ResetAnimatedProperties();
 
         public void SortAbove(IWidget target);
         public void SortBelow(IWidget target);
+        public void SortInlineWith(IWidget target);
         public void SetLocalSortOrder(int sortOrder);
         public void SetGlobalSortOrder(int sortOrder);
         public void SetRenderSortOrder(int sortOrder);

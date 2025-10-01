@@ -5,7 +5,7 @@ namespace UIFramework
         
     }
 
-    public interface IScreen : IReadOnlyScreen, IWindow
+    public interface IScreen : IReadOnlyScreen, IWindow 
     {
         public Controller Controller { get; }
 

@@ -1,56 +1,96 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 using UnityEngine;
 using UnityEngine.Extension;
 
 namespace UIFramework
 {
+    public enum ControllerState
+    {
+        Uninitialized,
+        Initialized,
+        Terminated
+    }
+    
     public abstract class Controller : MonoBehaviour, IUpdatable
     {
+        public readonly struct NavigationResponse
+        {
+            public readonly Navigation<IScreen>.Event NavigationEvent;
+            private readonly Awaitable _awaitable;
+
+            public NavigationResponse(in Navigation<IScreen>.Event navigationEvent, Awaitable awaitable)
+            {
+                NavigationEvent = navigationEvent;
+                _awaitable = awaitable;
+            }
+            
+            public Awaiter GetAwaiter() => new Awaiter(_awaitable);
+
+            public class Awaiter : INotifyCompletion
+            {
+                private readonly Awaitable _awaitable;
+                
+                public Awaiter(Awaitable awaitable)
+                {
+                    _awaitable = awaitable;
+                }
+
+                public bool IsCompleted => _awaitable == null || _awaitable.IsCompleted;
+
+                public void OnCompleted(Action continuation)
+                {
+                    if (continuation == null) throw new ArgumentNullException(nameof(continuation));
+                    if (_awaitable != null)
+                        _awaitable.GetAwaiter().OnCompleted(continuation);
+                    else
+                        continuation();
+                }
+
+                public void GetResult()
+                {
+                    if(_awaitable != null)
+                        _awaitable.GetAwaiter().GetResult();
+                }
+            }
+        }
+        
         public bool Active => gameObject.activeInHierarchy;
+        public bool IsInitialized => State == ControllerState.Initialized;
+        public ControllerState State { get; private set; } = ControllerState.Uninitialized;
+        public bool IsVisible => Opacity > 0.0F;
+        public abstract float Opacity { get; }
 
-        public WidgetState State { get; private set; } = WidgetState.Uninitialized;
-        public AccessState AccessState { get; private set; } = AccessState.None;
-
-        public bool IsOpen { get { return AccessState == AccessState.Open || AccessState == AccessState.Opening; } }
-        public bool IsVisible { get { return AccessState != AccessState.Closed; } }
+        public IScreen ActiveScreen => _navigation.Active;
+        public IScreen PreviousScreen => _navigation.PeekHistory();
         
         public IScalarFlag IsEnabled => _isEnabled;
-        private readonly ScalarFlag _isEnabled = new ScalarFlag(true);
+        private readonly ScalarFlag _isEnabled = new(true);
         
         public IScalarFlag IsInteractable => _isInteractable;
-        private readonly ScalarFlag _isInteractable = new ScalarFlag(true);
-        
-        public IScalarFlag IsHidden => _isHidden;
-        private readonly ScalarFlag _isHidden = new ScalarFlag(false);
+        private readonly ScalarFlag _isInteractable = new(true);
 
-        public virtual TimeMode TimeMode { get { return _timeMode; } protected set { _timeMode = value; } }
+        public virtual TimeMode TimeMode { get => _timeMode;
+            protected set => _timeMode = value;
+        }
         [SerializeField] private TimeMode _timeMode = TimeMode.Scaled;
 
         [SerializeField] protected ScreenCollector[] ScreenCollectors = null;
 
-        public event Action Opened = default;
-        public event Action Closed = default;
-
-        public event Action<IReadOnlyScreen> ScreenOpened = default;
-        public event Action<IReadOnlyScreen> ScreenClosed = default;
+        public event Action Shown;
+        public event Action Hidden;
+        public event WidgetAction ScreenShown;
+        public event WidgetAction ScreenHidden;
 
         private Navigation<IScreen> _navigation;
         private TransitionManager _transitionManager;
         private readonly History<VisibilityTransitionParams> _transitionHistory = new (16);
 
         private IScreen[] _screens = null;
-        private AnimationPlayer _animationPlayer = null;
-
-        public IScreen ActiveScreen
-        {
-            get
-            {
-                return _navigation.ActiveWindow;
-            }
-        }
-
+        
         // Unity Messages
 #if UNITY_EDITOR
         protected virtual void OnValidate()
@@ -100,7 +140,6 @@ namespace UIFramework
                         }
                     }
                 }
-
                 OnUpdate(deltaTime);
             }
         }
@@ -118,8 +157,8 @@ namespace UIFramework
                 {
                     if (pair.Value != null)
                     {
-                        pair.Value.Opening -= OnScreenOpen;
-                        pair.Value.Closing -= OnScreenClose;
+                        pair.Value.Shown -= OnScreenShown;
+                        pair.Value.Hidden -= OnScreenHidden;
                     }
                 }
             }            
@@ -132,14 +171,9 @@ namespace UIFramework
         }
 
         // Controller
-        protected virtual AccessAnimationPlayable CreateAccessPlayable(AccessOperation accessOperation, float length)
-        {
-            return default;
-        }
-
         public void Initialize()
         {
-            if (State == WidgetState.Initialized)
+            if (State == ControllerState.Initialized)
             {
                 throw new InvalidOperationException("Controller already initialized.");
             }
@@ -167,10 +201,11 @@ namespace UIFramework
                 if (!screenDictionary.ContainsKey(type))
                 {
                     screenDictionary.Add(type, _screens[i]);
-                    _screens[i].Opening += OnScreenOpen;
-                    _screens[i].Closing += OnScreenClose;
-                    _screens[i].Initialize(this);
-                    _screens[i].Close();
+                    _screens[i].Shown += OnScreenShown;
+                    _screens[i].Hidden += OnScreenHidden;
+                    _screens[i].Initialize();
+                    _screens[i].SetController(this);
+                    _screens[i].SetVisibility(WidgetVisibility.Hidden);
                 }
                 else
                 {
@@ -187,18 +222,17 @@ namespace UIFramework
             OnInitialize();
             SetBackButtonActive(false);
 
-            State = WidgetState.Initialized;
-            AccessState = AccessState.Closed;
+            State = ControllerState.Initialized; 
         }
 
         public void Terminate()
         {
-            if (State != WidgetState.Initialized)
+            if (State != ControllerState.Initialized)
             {
                 throw new InvalidOperationException("Controller cannot be terminated.");
             }
 
-            CloseAll();
+            HideAll();
             ClearHistory();
             _navigation.OnNavigationUpdate -= OnNavigationUpdate;
             _navigation = null;
@@ -213,9 +247,7 @@ namespace UIFramework
             _screens = null;
             
             OnTerminate();
-            
-            AccessState = AccessState.None;
-            State = WidgetState.Terminated;
+            State = ControllerState.Terminated;
         }
 
         protected virtual void OnInitialize() { }
@@ -224,338 +256,328 @@ namespace UIFramework
 
         protected abstract void SetBackButtonActive(bool active);
 
-        protected virtual void OnEnabled() { }
-        protected virtual void OnDisabled() { }
-
-        protected virtual void OnIsInteractable(bool value) { }
-
-        protected virtual void OnHide() { }
         protected virtual void OnShow() { }
-
-        public abstract void SetWaiting(bool waiting);
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(float animationLength = 0.0F, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        protected virtual void OnHide() { }
+        
+#region Default Animation Implementations
+        public NavigationResponse ShowScreen<TScreenType>(float animationLength = 0.0F, EasingMode easingMode = EasingMode.Linear, 
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default) where TScreenType : IScreen
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                WidgetAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
-                WidgetAnimation targetWindowAnimation = navigationEvent.ActiveWindow.GetDefaultAccessAnimation();
-
-                VisibilityTransitionParams visibilityTransitionPlayable = VisibilityTransitionParams.Custom(animationLength, EasingMode.EaseInOut,
-                            sourceWindowAnimation, targetWindowAnimation, VisibilityTransitionParams.SortPriority.Target);
-
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                awaitable = ShowScreen(in navigationEvent, null, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
             }
-            else
-            {
-                return navigationEvent.ActiveWindow;
-            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(object data, float animationLength = 0.0F, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        
+        public NavigationResponse ShowScreen<TScreenType>(object data, float animationLength = 0.0F, EasingMode easingMode = EasingMode.Linear,
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default) where TScreenType : IScreen
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                WidgetAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
-                WidgetAnimation targetWindowAnimation = navigationEvent.ActiveWindow.GetDefaultAccessAnimation();
-
-                VisibilityTransitionParams visibilityTransitionPlayable = VisibilityTransitionParams.Custom(animationLength, EasingMode.EaseInOut,
-                            sourceWindowAnimation, targetWindowAnimation, VisibilityTransitionParams.SortPriority.Target);
-
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                awaitable = ShowScreen(in navigationEvent, data, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
             }
-            else
-            {
-                navigationEvent.ActiveWindow.SetData(data);
-                return navigationEvent.ActiveWindow;
-            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        
+        public NavigationResponse ShowScreen(IScreen screen, float animationLength = 0.0F, EasingMode easingMode = EasingMode.Linear,
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default)
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                WidgetAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
-
-                VisibilityTransitionParams visibilityTransitionPlayable = VisibilityTransitionParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
-                            sourceWindowAnimation, accessPlayable.ImplicitAnimation, VisibilityTransitionParams.SortPriority.Target);
-
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                awaitable = ShowScreen(in navigationEvent, null, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
             }
-            else
-            {
-                return navigationEvent.ActiveWindow;
-            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(object data, in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        
+        public NavigationResponse ShowScreen(IScreen screen, object data, float animationLength = 0.0F, EasingMode easingMode = EasingMode.Linear,
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default)
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                WidgetAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
-
-                VisibilityTransitionParams visibilityTransitionPlayable = VisibilityTransitionParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
-                            sourceWindowAnimation, accessPlayable.ImplicitAnimation, VisibilityTransitionParams.SortPriority.Target);
-
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                awaitable = ShowScreen(in navigationEvent, data, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
             }
-            else
-            {
-                navigationEvent.ActiveWindow.SetData(data);
-                return navigationEvent.ActiveWindow;
-            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(in VisibilityTransitionParams visibilityTransitionPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        
+        private Awaitable ShowScreen(in Navigation<IScreen>.Event navigationEvent, object data, float animationLength, EasingMode easingMode,
+            bool excludeCurrentFromHistory, CancellationToken cancellationToken) 
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            IAnimation sourceAnimation = navigationEvent.Previous != null ? navigationEvent.Previous.GetDefaultAnimation(WidgetVisibility.Hidden) : null;
+            IAnimation targetAnimation = navigationEvent.Active.GetDefaultAnimation(WidgetVisibility.Visible);
+
+            VisibilityTransitionParams transitionPlayable = Transition.Custom(animationLength, easingMode, sourceAnimation, targetAnimation, 
+                TransitionSortPriority.Target);
+
+            return ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, data, 
+                excludeCurrentFromHistory, cancellationToken); 
+        }
+#endregion
+
+#region Animation Reference Implementations
+        public NavigationResponse ShowScreen<TScreenType>(in WidgetAnimationRef animationRef, float animationLength, 
+            EasingMode easingMode = EasingMode.Linear, bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default) 
+            where TScreenType : IScreen
+        {
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                awaitable = ShowScreen(in navigationEvent, null, animationRef, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
             }
-            else
-            {
-                return navigationEvent.ActiveWindow;
-            }
+            return new NavigationResponse(navigationEvent, awaitable);                
         }
-
-        public IReadOnlyScreen OpenScreen<ScreenType>(object data, in VisibilityTransitionParams visibilityTransitionPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        
+        public NavigationResponse ShowScreen<TScreenType>(object data, in WidgetAnimationRef animationRef, float animationLength, 
+            EasingMode easingMode = EasingMode.Linear, bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default) 
+            where TScreenType : IScreen
         {
-            NavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                return OpenScreenInternal<ScreenType>(in visibilityTransitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
-            }
-            else
+                awaitable = ShowScreen(in navigationEvent, data, in animationRef, animationLength, easingMode, excludeCurrentFromHistory, cancellationToken);
+            } 
+            return new NavigationResponse(navigationEvent, awaitable);        
+        }
+        
+        public NavigationResponse ShowScreen(IScreen screen, in WidgetAnimationRef animationRef, float animationLength, 
+            EasingMode easingMode = EasingMode.Linear, bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default)
+        {
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
             {
-                navigationEvent.ActiveWindow.SetData(data);
-                return navigationEvent.ActiveWindow;
+                awaitable = ShowScreen(in navigationEvent, null, in animationRef, animationLength, easingMode, excludeCurrentFromHistory, 
+                    cancellationToken);
             }
+            return new NavigationResponse(navigationEvent, awaitable);        
         }
 
-        private IReadOnlyScreen OpenScreenInternal<ScreenType>(in VisibilityTransitionParams visibilityTransitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, bool excludeCurrentFromHistory) where ScreenType : IScreen
+        public NavigationResponse ShowScreen(IScreen screen, object data, in WidgetAnimationRef animationRef, float animationLength, 
+            EasingMode easingMode = EasingMode.Linear, bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default)
         {
-            OpenScreenInternal(in visibilityTransitionPlayable, targetScreen, sourceScreen, data, excludeCurrentFromHistory);
-            return targetScreen;
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                awaitable = ShowScreen(in navigationEvent, data, in animationRef, animationLength, easingMode, excludeCurrentFromHistory, 
+                    cancellationToken);
+            } 
+            return new NavigationResponse(navigationEvent, awaitable);
+        }
+        
+        private Awaitable ShowScreen(in Navigation<IScreen>.Event navigationEvent, object data, in WidgetAnimationRef animationRef, 
+            float animationLength, EasingMode easingMode, bool excludeCurrentFromHistory, CancellationToken cancellationToken)
+        {
+            IAnimation sourceAnimation = navigationEvent.Previous != null ? navigationEvent.Previous.GetDefaultAnimation(WidgetVisibility.Hidden) : null;
+            VisibilityTransitionParams transitionPlayable = Transition.Custom(animationLength, easingMode, sourceAnimation,
+                in animationRef, TransitionSortPriority.Target);
+
+            return ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, data, 
+                excludeCurrentFromHistory, cancellationToken);
+        }
+#endregion
+        
+#region Transition Implementations
+        public NavigationResponse ShowScreen<TScreenType>(in VisibilityTransitionParams transitionPlayable, bool excludeCurrentFromHistory = false,
+            CancellationToken cancellationToken = default) 
+            where TScreenType : IScreen
+        {
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                awaitable = ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, null, 
+                    excludeCurrentFromHistory, cancellationToken);
+            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
 
-        private IReadOnlyScreen OpenScreenInternal<ScreenType>(in VisibilityTransitionParams visibilityTransitionPlayable, IScreen targetScreen, IScreen sourceScreen, bool excludeCurrentFromHistory) where ScreenType : IScreen
+        public NavigationResponse ShowScreen<TScreenType>(object data, in VisibilityTransitionParams transitionPlayable, 
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default) where TScreenType : IScreen
         {
-            OpenScreenInternal(in visibilityTransitionPlayable, targetScreen, sourceScreen, excludeCurrentFromHistory);
-            return targetScreen;
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen<TScreenType>(excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                awaitable = ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, data, 
+                    excludeCurrentFromHistory, cancellationToken);
+            }
+            return new NavigationResponse(navigationEvent, awaitable);
+        }
+        
+        public NavigationResponse ShowScreen(IScreen screen, in VisibilityTransitionParams transitionPlayable, bool excludeCurrentFromHistory = false,
+            CancellationToken cancellationToken = default) 
+        {
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                awaitable = ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, null, 
+                    excludeCurrentFromHistory, cancellationToken);
+            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
 
-        private void OpenScreenInternal(in VisibilityTransitionParams visibilityTransitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, bool excludeCurrentFromHistory)
+        public NavigationResponse ShowScreen(IScreen screen, object data, in VisibilityTransitionParams transitionPlayable, 
+            bool excludeCurrentFromHistory = false, CancellationToken cancellationToken = default)
         {
-            targetScreen.SetData(data);
-            OpenScreenInternal(in visibilityTransitionPlayable, targetScreen, sourceScreen, excludeCurrentFromHistory);
+            Navigation<IScreen>.Event navigationEvent = NavigateToScreen(screen, excludeCurrentFromHistory);
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                awaitable = ShowScreenInternal(in transitionPlayable, navigationEvent.Active, navigationEvent.Previous, data, 
+                    excludeCurrentFromHistory, cancellationToken);
+            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        private void OpenScreenInternal(in VisibilityTransitionParams visibilityTransitionPlayable, IScreen targetScreen, IScreen sourceScreen, bool excludeCurrentFromHistory)
+        
+#endregion
+        
+        private Awaitable ShowScreenInternal(in VisibilityTransitionParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, 
+            bool excludeCurrentFromHistory, CancellationToken cancellationToken)
         {
+            Awaitable awaitable = null;
+            if (data != null)
+                targetScreen.SetData(data);
+            
             if (sourceScreen != null)
             {
-                if (visibilityTransitionPlayable.Length > 0.0F && (visibilityTransitionPlayable.EntryAnimation != null || visibilityTransitionPlayable.ExitAnimation != null))
+                if (transitionPlayable.Length > 0.0F && (transitionPlayable.EntryAnimationRef.IsValid || transitionPlayable.ExitAnimationRef.IsValid))
                 {
-                    _transitionManager.Transition(in visibilityTransitionPlayable, sourceScreen, targetScreen);
+                    awaitable = _transitionManager.Transition(transitionPlayable, sourceScreen, targetScreen, cancellationToken);
                 }
                 else
                 {
-                    _transitionManager.Transition(VisibilityTransitionParams.None(), sourceScreen, targetScreen);
+                    awaitable = _transitionManager.Transition(Transition.None(), sourceScreen, targetScreen, cancellationToken);
                 }
 
                 if (!excludeCurrentFromHistory)
                 {
-                    _transitionHistory.Push(visibilityTransitionPlayable);
+                    _transitionHistory.Push(transitionPlayable);
                 }
             }
             else
             {
-                if (visibilityTransitionPlayable.Length > 0.0F && visibilityTransitionPlayable.EntryAnimation != null)
+                if (transitionPlayable.Length > 0.0F && transitionPlayable.EntryAnimationRef.IsValid)
                 {
-                    AccessAnimationPlayable animationPlayable = visibilityTransitionPlayable.EntryAnimation.GetWindowAnimation(targetScreen).CreatePlayable(AccessOperation.Open, visibilityTransitionPlayable.Length,
-                        visibilityTransitionPlayable.EasingMode, TimeMode);
-                    targetScreen.Open(in animationPlayable);
+                    AnimationPlayable playable = transitionPlayable.EntryAnimationRef.Resolve(targetScreen, WidgetVisibility.Visible).
+                        Playable(transitionPlayable.Length, PlaybackMode.Forward, transitionPlayable.EasingMode, TimeMode);
+                    awaitable = targetScreen.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, cancellationToken);
                 }
                 else
                 {
-                    targetScreen.Open();
+                    targetScreen.SetVisibility(WidgetVisibility.Visible);
                 }
             }
-
-            if (sourceScreen == null)
-            {
-                OpenInternal(visibilityTransitionPlayable.Length);
-            }
+            return awaitable;
         }
 
-        private NavigationEvent<IScreen> NavigateToScreen<ScreenType>(bool excludeCurrentFromHistory) where ScreenType : IScreen
+        private Navigation<IScreen>.Event NavigateToScreen<TScreenType>(bool excludeCurrentFromHistory) where TScreenType : IScreen
         {
-            return _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
+            return _navigation.Travel<TScreenType>(excludeCurrentFromHistory);
         }
 
-        private void OpenInternal(float animationLength)
+        private Navigation<IScreen>.Event NavigateToScreen(IScreen screen, bool excludeCurrentFromHistory)
         {
-            bool animateOpen = false;
-            if (animationLength > 0.0F)
-            {
-                if (_animationPlayer != null)
-                {
-                    Debug.Log("Controller is already playing a close animation, the current animation is rewound.");
-                    _animationPlayer.Rewind();
-                    animateOpen = true;
-                }
-                else
-                {
-                    AccessAnimationPlayable playable = CreateAccessPlayable(AccessOperation.Open, animationLength);
-                    if (playable.Animation != null)
-                    {
-                        _animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
-                        _animationPlayer.OnComplete += OnAnimationComplete;
-                        animateOpen = true;
-                    }
-                }
-            }
-
-            if (animateOpen)
-            {
-                AccessState = AccessState.Opening;
-                OnOpen();
-                Opened?.Invoke();
-            }
-            else
-            {
-                if (_animationPlayer != null)
-                {
-                    Debug.Log("Open was called on a Controller without an animation while already playing a state animation, " +
-                        "this may cause unexpected behviour of the UI.");
-                    _animationPlayer.SetCurrentTime(0.0F);
-                    _animationPlayer.Stop();
-                    _animationPlayer.OnComplete -= OnAnimationComplete;
-                    _animationPlayer = null;
-                }
-
-                AccessState = AccessState.Opening;
-                OnOpen();
-                Opened?.Invoke();
-                AccessState = AccessState.Open;
-                OnOpened();
-            }
-        }
-
-        protected virtual void OnOpen() { }
-        protected virtual void OnOpened() { }
-
-        public void CloseScreen()
-        {
-            _ = TryCloseScreen();
+            return _navigation.Travel(screen, excludeCurrentFromHistory);
         }
         
-        public bool TryCloseScreen()
+        public NavigationResponse HideActiveScreen(CancellationToken cancellationToken = default)
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.Back();
+            Navigation<IScreen>.Event navigationEvent = _navigation.Back();
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                VisibilityTransitionParams visibilityTransition = _transitionHistory.Pop();
-                _transitionManager.ReverseTransition(in visibilityTransition, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow);
-                return true;
+                VisibilityTransitionParams visibilityTransition = _transitionHistory.Pop().Invert();
+                awaitable = _transitionManager.Transition(visibilityTransition, navigationEvent.Active, navigationEvent.Previous, 
+                    cancellationToken);
             }
-            return false;
+            return new NavigationResponse(navigationEvent, awaitable);
         }
 
-        public bool CloseAll(float animationLength = 0.0F)
+        public NavigationResponse HideActiveScreen(in WidgetAnimationRef animationRef, float animationLength, EasingMode easingMode = EasingMode.Linear, 
+            CancellationToken cancellationToken = default)
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.Clear();
+            Navigation<IScreen>.Event navigationEvent = _navigation.Back();
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                CloseAllInternal(new AccessAnimationParams(animationLength, EasingMode.EaseInOut), navigationEvent.PreviousActiveWindow);
-                return true;
+                VisibilityTransitionParams previousTransition = _transitionHistory.Pop();
+                VisibilityTransitionParams transitionPlayable = Transition.Custom(animationLength, easingMode, in animationRef, 
+                    in previousTransition.ExitAnimationRef, TransitionSortPriority.Target);
+                
+                awaitable = _transitionManager.Transition(transitionPlayable, navigationEvent.Active, navigationEvent.Previous, 
+                    cancellationToken);
             }
-            return false;
+            return new NavigationResponse(navigationEvent, awaitable);
         }
-
-        public bool CloseAll(in AccessAnimationParams accessPlayable)
+        
+        public NavigationResponse HideActiveScreen(in VisibilityTransitionParams transitionPlayable, CancellationToken cancellationToken = default)
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.Clear();
+            Navigation<IScreen>.Event navigationEvent = _navigation.Back();
+            Awaitable awaitable = null;
             if (navigationEvent.Success)
             {
-                CloseAllInternal(in accessPlayable, navigationEvent.PreviousActiveWindow);
-                return true;
+                _ = _transitionHistory.Pop();
+                awaitable = _transitionManager.Transition(transitionPlayable, navigationEvent.Active, navigationEvent.Previous, 
+                    cancellationToken);
             }
-            return false;
+            return new NavigationResponse(navigationEvent, awaitable);
+        }
+        
+        public NavigationResponse HideAll(float animationLength = 0.0F, EasingMode easingMode = EasingMode.Linear, 
+            CancellationToken cancellationToken = default)
+        {
+            Navigation<IScreen>.Event navigationEvent = _navigation.Clear();
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
+            {
+                IAnimation animation = navigationEvent.Previous.GetDefaultAnimation(WidgetVisibility.Hidden);
+                WidgetAnimationRef animationRef = animation != null ? WidgetAnimationRef.FromExplicit(animation) : default;
+                awaitable = HideAllInternal(navigationEvent.Previous, in animationRef, animationLength, easingMode, cancellationToken); 
+            }
+            return new NavigationResponse(navigationEvent, awaitable);
         }
 
-        private void CloseAllInternal(in AccessAnimationParams accessPlayable, IScreen targetScreen)
+        public NavigationResponse HideAll(in WidgetAnimationRef animationRef, float animationLength, EasingMode easingMode = EasingMode.Linear,
+            CancellationToken cancellationToken = default)
         {
-            _transitionManager.Terminate(Mathf.Approximately(accessPlayable.Length, 0.0F));
-
-            if (accessPlayable.Length > 0.0F)
+            Navigation<IScreen>.Event navigationEvent = _navigation.Clear();
+            Awaitable awaitable = null;
+            if (navigationEvent.Success)
             {
-                targetScreen.Close(accessPlayable.CreatePlayable(targetScreen, AccessOperation.Close, 0.0F, TimeMode));
+                awaitable = HideAllInternal(navigationEvent.Previous, in animationRef, animationLength, easingMode, cancellationToken); 
             }
-            else
-            {
-                targetScreen.Close();
-            }
-
-            CloseInternal(accessPlayable.Length);
+            return new NavigationResponse(navigationEvent, awaitable);
         }
 
-        private void CloseInternal(float animationLength)
+        private Awaitable HideAllInternal(IScreen screen, in WidgetAnimationRef animationRef, float animationLength, EasingMode easingMode, 
+            CancellationToken cancellationToken)
         {
-            bool animateClose = false;
+            Awaitable awaitable = null;
+            _transitionManager.Terminate();
             if (animationLength > 0.0F)
             {
-                if (_animationPlayer != null)
-                {
-                    Debug.Log("Controller is already playing an open animation, the current animation is rewound.");
-                    _animationPlayer.Rewind();
-                    animateClose = true;
-                }
-                else
-                {
-                    AccessAnimationPlayable playable = CreateAccessPlayable(AccessOperation.Close, animationLength);
-                    if (playable.Animation != null)
-                    {
-                        _animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
-                        _animationPlayer.OnComplete += OnAnimationComplete;
-                        animateClose = true;
-                    }
-                }
-            }
-
-            if (animateClose)
-            {
-                AccessState = AccessState.Closing;
-                OnClose();
-                Closed?.Invoke();
+                AnimationPlayable playable = animationRef.Resolve(screen, WidgetVisibility.Hidden).
+                    Playable(animationLength, PlaybackMode.Forward, easingMode, TimeMode);
+                awaitable = screen.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, cancellationToken);
             }
             else
             {
-                if (_animationPlayer != null)
-                {
-                    Debug.Log("Open was called on a Controller without an animation while already playing a state animation, " +
-                        "this may cause unexpected behviour of the UI.");
-                    _animationPlayer.SetCurrentTime(0.0F);
-                    _animationPlayer.Stop();
-                    _animationPlayer.OnComplete -= OnAnimationComplete;
-                    _animationPlayer = null;
-                }
-
-                AccessState = AccessState.Closing;
-                OnClose();
-                Closed?.Invoke();
-                AccessState = AccessState.Closed;
-                OnClosed();
+                screen.SetVisibility(WidgetVisibility.Hidden);
             }
+            return awaitable;
         }
-
-        protected virtual void OnClose() { }
-        protected virtual void OnClosed() { }
 
         public void StartNewHistoryGroup()
         {
@@ -565,48 +587,32 @@ namespace UIFramework
 
         public void ClearLatestHistoryGroup()
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.ClearLatestHistoryGroup();
+            Navigation<IScreen>.Event navigationEvent = _navigation.ClearLatestHistoryGroup();
             if (navigationEvent.Success)
             {
                 _transitionHistory.ClearLatestGroup();
             }
         }
 
-        public void InsertHistory<ScreenType>(in VisibilityTransitionParams visibilityTransitionPlayable) where ScreenType : IScreen
+        public void InsertHistory<TScreenType>(in VisibilityTransitionParams transitionPlayable) where TScreenType : IScreen
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.InsertHistory<ScreenType>();
+            Navigation<IScreen>.Event navigationEvent = _navigation.InsertHistory<TScreenType>();
             if (navigationEvent.Success)
             {
-                _transitionHistory.Push(visibilityTransitionPlayable);
+                _transitionHistory.Push(transitionPlayable);
             }
         }
 
         public void ClearHistory()
         {
-            NavigationEvent<IScreen> navigationEvent = _navigation.ClearHistory();
+            Navigation<IScreen>.Event navigationEvent = _navigation.ClearHistory();
             if (navigationEvent.Success)
             {
                 _transitionHistory.Clear();
             }
         }
 
-        private void OnAnimationComplete(IAnimation animation)
-        {
-            if (AccessState == AccessState.Opening)
-            {
-                AccessState = AccessState.Open;
-                OnOpened();
-            }
-            else if (AccessState == AccessState.Closing)
-            {
-                AccessState = AccessState.Closed;
-                OnClosed();
-            }
-            _animationPlayer.OnComplete -= OnAnimationComplete;
-            _animationPlayer = null;
-        }
-
-        private void OnNavigationUpdate(NavigationEvent<IScreen> navigationEvent)
+        private void OnNavigationUpdate(Navigation<IScreen>.Event navigationEvent)
         {
             if (navigationEvent.Success)
             {
@@ -615,14 +621,14 @@ namespace UIFramework
             }
         }
 
-        private void OnScreenOpen(IAccessible accessible)
+        private void OnScreenShown(IWidget widget)
         {
-            ScreenOpened?.Invoke(accessible as IReadOnlyScreen);
+            ScreenShown?.Invoke(widget);
         }
 
-        private void OnScreenClose(IAccessible accessible)
+        private void OnScreenHidden(IWidget widget)
         {
-            ScreenClosed?.Invoke(accessible as IReadOnlyScreen);
+            ScreenHidden?.Invoke(widget);
         }
         
         private void OnIsEnabledUpdated(bool value)
@@ -631,14 +637,6 @@ namespace UIFramework
             {
                 _screens[i].IsEnabled.Value = value;
             }
-            if (value)
-            {
-                OnEnabled();
-            }
-            else
-            {
-                OnDisabled();
-            }
         }
         
         private void OnIsInteractableUpdated(bool value)
@@ -646,23 +644,6 @@ namespace UIFramework
             for (int i = 0; i < _screens.Length; i++)
             {
                 _screens[i].IsInteractable.Value = value;
-            }
-            OnIsInteractable(value);
-        }
-        
-        private void OnIsHiddenUpdated(bool value)
-        {
-            for (int i = 0; i < _screens.Length; i++)
-            {
-                _screens[i].IsHidden.Value = value;
-            }
-            if (value)
-            {
-                OnHide();
-            }
-            else
-            {
-                OnShow();
             }
         }
     }

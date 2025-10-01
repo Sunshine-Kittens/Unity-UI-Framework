@@ -23,25 +23,25 @@ namespace UIFramework
     public readonly struct VisibilityTransitionParams : IEquatable<VisibilityTransitionParams>
     {
         public readonly float Length;
-        public readonly int LengthMs;
         public readonly EasingMode EasingMode;
-        public readonly ImplicitAnimation ExitAnimation;
-        public readonly ImplicitAnimation EntryAnimation;
+        public readonly WidgetAnimationRef ExitAnimationRef;
+        public readonly WidgetAnimationRef EntryAnimationRef;
         public readonly TransitionSortPriority SortPriority;
+        private readonly int _lengthMs;
 
         public TransitionTarget Target
         {
             get
             {
-                if(ExitAnimation.IsValid && EntryAnimation.IsValid)
+                if(ExitAnimationRef.IsValid && EntryAnimationRef.IsValid)
                 {
                     return TransitionTarget.Both;
                 }
-                if(ExitAnimation.IsValid)
+                if(ExitAnimationRef.IsValid)
                 {
                     return TransitionTarget.Source;
                 }
-                if (EntryAnimation.IsValid)
+                if (EntryAnimationRef.IsValid)
                 {
                     return TransitionTarget.Target;
                 }
@@ -49,20 +49,20 @@ namespace UIFramework
             }
         }
 
-        internal VisibilityTransitionParams(float length, EasingMode easingMode, ImplicitAnimation exitAnimation, ImplicitAnimation entryAnimation, 
+        internal VisibilityTransitionParams(float length, EasingMode easingMode, in WidgetAnimationRef exitAnimationRef, in WidgetAnimationRef entryAnimationRef, 
             TransitionSortPriority transitionSortPriority)
         {
             Length = length;
-            LengthMs = SecondsToMilliseconds(length);
+            _lengthMs = SecondsToMilliseconds(length);
             EasingMode = easingMode;
-            ExitAnimation = exitAnimation;
-            EntryAnimation = entryAnimation;
+            ExitAnimationRef = exitAnimationRef;
+            EntryAnimationRef = entryAnimationRef;
             SortPriority = transitionSortPriority;
         }
 
         private static int SecondsToMilliseconds(float seconds)
         {
-            return Mathf.RoundToInt(seconds * 1000);
+            return Mathf.RoundToInt(seconds * 1000);    
         }
 
         public override bool Equals(object obj)
@@ -72,13 +72,13 @@ namespace UIFramework
 
         public bool Equals(VisibilityTransitionParams other)
         {
-            return LengthMs == other.LengthMs && EasingMode == other.EasingMode && ExitAnimation.Equals(other.ExitAnimation) && 
-                EntryAnimation.Equals(other.EntryAnimation);
+            return _lengthMs == other._lengthMs && EasingMode == other.EasingMode && ExitAnimationRef.Equals(other.ExitAnimationRef) && 
+                EntryAnimationRef.Equals(other.EntryAnimationRef) && SortPriority == other.SortPriority;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(LengthMs, EasingMode, ExitAnimation, EntryAnimation);
+            return HashCode.Combine(_lengthMs, EasingMode, ExitAnimationRef, EntryAnimationRef);
         }
 
         public static bool operator ==(VisibilityTransitionParams lhs, VisibilityTransitionParams rhs)
@@ -89,6 +89,33 @@ namespace UIFramework
         public static bool operator !=(VisibilityTransitionParams lhs, VisibilityTransitionParams rhs)
         {
             return !(lhs == rhs);
+        }
+        
+        public VisibilityTransitionParams Invert()
+        {
+            return new VisibilityTransitionParams(Length, EasingMode, EntryAnimationRef, ExitAnimationRef, GetInvertedSortPriority(SortPriority));
+        }
+        
+        public VisibilityTransitionParams Invert(float length)
+        {
+            return new VisibilityTransitionParams(length, EasingMode, EntryAnimationRef, ExitAnimationRef, GetInvertedSortPriority(SortPriority));
+        }
+        
+        public VisibilityTransitionParams Invert(float length, EasingMode easingMode)
+        {
+            return new VisibilityTransitionParams(length, easingMode, EntryAnimationRef, ExitAnimationRef, GetInvertedSortPriority(SortPriority));
+        }
+
+        private TransitionSortPriority GetInvertedSortPriority(TransitionSortPriority sortPriority)
+        {
+            switch (sortPriority)
+            {
+                case TransitionSortPriority.Source:
+                    return TransitionSortPriority.Target;
+                case TransitionSortPriority.Target:
+                    return TransitionSortPriority.Source;
+            }
+            return sortPriority;
         }
     }
 }

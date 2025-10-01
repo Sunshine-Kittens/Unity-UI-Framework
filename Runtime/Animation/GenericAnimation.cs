@@ -20,18 +20,18 @@ namespace UIFramework
 
     public abstract class GenericWidgetAnimation : WidgetAnimation
     {
-        protected readonly GenericAnimation Animation;
+        protected readonly GenericAnimation GenericAnimation;
         private readonly GenericAnimation _fallback;
         
-        protected GenericWidgetAnimation(GenericAnimation animation, GenericAnimation fallback = GenericAnimation.Fade)
+        protected GenericWidgetAnimation(GenericAnimation genericAnimation, GenericAnimation fallback = GenericAnimation.Fade)
         {
-            Animation = type;
-            _fallback = fallbackType;
+            GenericAnimation = genericAnimation;
+            _fallback = fallback;
         }
 
         public override void Evaluate(float normalisedTime)
         {
-            GenericAnimation evaluationAnimation = IsSupportedType(Animation) ? Animation : _fallback;
+            GenericAnimation evaluationAnimation = IsSupportedType(GenericAnimation) ? GenericAnimation : _fallback;
             switch (evaluationAnimation)
             {
                 case GenericAnimation.Fade:

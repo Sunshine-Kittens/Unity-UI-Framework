@@ -1,27 +1,73 @@
 using UnityEngine.Extension;
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
+
+using UnityEngine;
+using UnityEngine.Extension.Awaitable;
 
 namespace UIFramework
 {
-    public class TabController : IWidget
+    public class TabController
     {
-        public WidgetState State { get; private set; } = WidgetState.Uninitialized;
+        public readonly struct NavigationResponse
+        {
+            public readonly bool Success;
+            public readonly IWindow Window;
+            private readonly Awaitable _awaitable;
 
+            public NavigationResponse(bool success, IWindow window, Awaitable awaitable)
+            {
+                Success = success;
+                Window = window;
+                _awaitable = awaitable;
+            }
+            
+            public Awaiter GetAwaiter() => new Awaiter(_awaitable);
+
+            public class Awaiter : INotifyCompletion
+            {
+                private readonly Awaitable _awaitable;
+                
+                public Awaiter(Awaitable awaitable)
+                {
+                    _awaitable = awaitable;
+                }
+
+                public bool IsCompleted => _awaitable == null || _awaitable.IsCompleted;
+
+                public void OnCompleted(Action continuation)
+                {
+                    if (continuation == null) throw new ArgumentNullException(nameof(continuation));
+                    if (_awaitable != null)
+                        _awaitable.GetAwaiter().OnCompleted(continuation);
+                    else
+                        continuation();
+                }
+
+                public void GetResult()
+                {
+                    if(_awaitable != null)
+                        _awaitable.GetAwaiter().GetResult();
+                }
+            }
+        }
+        
         private ObjectTypeMap<IWindow> _windows = null;
 
-        public IWindow ActiveTabWindow { get { return _activeTabWindow; } }
+        public IWindow ActiveTabWindow => _activeTabWindow;
         private IWindow _activeTabWindow = null;
+        private WidgetAnimationRef _activeAnimationRef = default;
 
-        public int ActiveTabIndex { get { return _activeTabIndex; } }
+        public int ActiveTabIndex => _activeTabIndex;
         private int _activeTabIndex = 0;
         
         private TabController() { }
 
         public TabController(IWindow[] windows, int activeTabIndex = 0)
         {
-            Populate(windows, activeTabIndex);
-            Initialize();
+            Populate(windows, activeTabIndex); 
         }
 
         public bool IsValid()
@@ -29,36 +75,11 @@ namespace UIFramework
             return _windows != null;
         }
 
-        public void Initialize() 
-        {
-            State = WidgetState.Initialized;
-        }
-
-        public void UpdateWidget(float deltaTime)
-        {
-            for (int i = 0; i < _windows.Array.Length; i++)
-            {
-                if (_windows.Array[i].IsVisible)
-                {
-                    _windows.Array[i].UpdateWidget(deltaTime);
-                }
-            }
-        }
-
-        public void Terminate() 
-        {
-            for (int i = 0; i < _windows.Array.Length; i++)
-            {
-                _windows.Array[i].Terminate();
-            }
-            State = WidgetState.Terminated;
-        }
-
         public void Clear()
         {
             if (_activeTabWindow != null)
             {
-                _activeTabWindow.Close();
+                _activeTabWindow.SetVisibility(WidgetVisibility.Hidden);
             }
             _activeTabWindow = null;
             _windows = null;
@@ -77,7 +98,7 @@ namespace UIFramework
                 _windows.Array[i].Initialize();
                 if (i == activeTabIndex)
                 {
-                    _windows.Array[i].Open();
+                    _windows.Array[i].SetVisibility(WidgetVisibility.Visible);
                     _activeTabWindow = _windows.Array[i];
                     _activeTabIndex = i;
                 }
@@ -86,122 +107,146 @@ namespace UIFramework
             if (_activeTabWindow == null && _windows.Array.Length > 0)
             {
                 _activeTabWindow = _windows.Array[0];
-                _activeTabWindow.Open();
+                _activeTabWindow.SetVisibility(WidgetVisibility.Visible);
             }
         }
 
-        public IWindow SetActive<WindowType>(GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
+        public NavigationResponse SetActive<TWindow>(GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
+            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default) where TWindow : IWindow
         {
-            return SetActiveInternal<WindowType>(new AccessAnimationParams(type, length, easingMode));
+            return SetActiveWindowInternal<TWindow>(null, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActive<WindowType>(in AccessAnimationParams accessPlayable) where WindowType : IWindow
+        public NavigationResponse SetActive<TWindow>(object data, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
+            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default) where TWindow : IWindow
         {
-            return SetActiveInternal<WindowType>(in accessPlayable);
+            return SetActiveWindowInternal<TWindow>(data, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
+        }
+        
+        public NavigationResponse SetActive<TWindow>(in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
+            CancellationToken cancellationToken = default) where TWindow : IWindow
+        {
+            return SetActiveWindowInternal<TWindow>(null, in animationRef, length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActive<WindowType>(object data, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut) where WindowType : IWindow
+        public NavigationResponse SetActive<TWindow>(object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
+            CancellationToken cancellationToken = default) where TWindow : IWindow
         {
-            IWindow window = SetActiveInternal<WindowType>(new AccessAnimationParams(type, length, easingMode));
-            window.SetData(data);
-            return window;
+            return SetActiveWindowInternal<TWindow>(data, in animationRef, length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActive<WindowType>(object data, in AccessAnimationParams accessPlayable) where WindowType : IWindow
+        public NavigationResponse SetActiveIndex(int index, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
+            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default)
         {
-            IWindow window = SetActiveInternal<WindowType>(in accessPlayable);
-            window.SetData(data);
-            return window;
+            return SetActiveIndexInternal(index, null, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActiveIndex(int index, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
+        public NavigationResponse SetActiveIndex(int index, object data, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
+            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default)
         {
-            return SetActiveIndexInternal(index, new AccessAnimationParams(type, length, easingMode));
+            return SetActiveIndexInternal(index, data, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActiveIndex(int index, in AccessAnimationParams accessPlayable)
+        public NavigationResponse SetActiveIndex(int index, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
+        CancellationToken cancellationToken = default)
         {
-            return SetActiveIndexInternal(index, in accessPlayable);
+            return SetActiveIndexInternal(index, null, in animationRef, length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActiveIndex(int index, object data, GenericAnimation type = GenericAnimation.Fade, float length = 0.5F, EasingMode easingMode = EasingMode.EaseInOut)
+        public NavigationResponse SetActiveIndex(int index, object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
+            CancellationToken cancellationToken = default)
         {
-            IWindow window = SetActiveIndexInternal(index, new AccessAnimationParams(type, length, easingMode));
-            window.SetData(data);
-            return window;
+            return SetActiveIndexInternal(index, data, in animationRef, length, easingMode, cancellationToken);
         }
 
-        public IWindow SetActiveIndex(int index, object data, in AccessAnimationParams accessPlayable)
+        private bool TryGetWindow<TWindow>(out IWindow window, out int index) where TWindow : IWindow
         {
-            IWindow window = SetActiveIndexInternal(index, in accessPlayable);
-            window.SetData(data);
-            return window;
-        }
-
-        private IWindow SetActiveInternal<WindowType>(in AccessAnimationParams accessPlayable) where WindowType : IWindow
-        {
-            if (_activeTabWindow != null)
+            if (_windows.Dictionary.TryGetValue(typeof(TWindow), out window))
             {
-                Type windowType = typeof(WindowType);
-                if (windowType != _activeTabWindow.GetType())
+                for (int i = 0; i < _windows.Array.Length; i++)
                 {
-                    IWindow targetWindow;
-                    if (_windows.Dictionary.TryGetValue(windowType, out targetWindow))
+                    if (_windows.Array[i] == window)
                     {
-                        for (int i = 0; i < _windows.Array.Length; i++)
-                        {
-                            if (_windows.Array[i] == targetWindow)
-                            {
-                                _activeTabIndex = i;
-                                break;
-                            }
-                        }
-
-                        AccessAnimationPlayable closeAnimationPlayable;
-                        if (_activeTabWindow.AccessAnimationPlayable.Animation != null)
-                        {
-                            closeAnimationPlayable = _activeTabWindow.AccessAnimationPlayable.CreateInverse();
-                        }
-                        else
-                        {
-                            closeAnimationPlayable = _activeTabWindow.GetDefaultAccessAnimation().CreatePlayable(AccessOperation.Close, accessPlayable.Length, accessPlayable.EasingMode);
-                        }
-                        _activeTabWindow.Close(in closeAnimationPlayable);
-                        _activeTabWindow = targetWindow;
-                        _activeTabWindow.Open(accessPlayable.CreatePlayable(_activeTabWindow, AccessOperation.Open));
+                        index = i;
+                        return true;
                     }
                 }
             }
-            return _activeTabWindow;
+            index = -1;
+            return false;
+        }
+        
+        private bool TryGetWindow(int index, out IWindow window)
+        {
+            if (_windows.Array.IsValidIndex(index))
+            {
+                window = _windows.Array[index];
+                return true;
+            }
+            window = null;
+            return false;
+        }
+        
+        private NavigationResponse SetActiveWindowInternal<TWindow>(object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode, 
+            CancellationToken cancellationToken)
+            where TWindow : IWindow
+        {
+            if (TryGetWindow<TWindow>(out IWindow window, out int index) && _activeTabWindow != window)
+            {
+                if(data != null)
+                    window.SetData(data);
+                Awaitable awaitable = SetActiveInternal(_activeTabWindow, window, in animationRef,  length, easingMode, cancellationToken);
+                return new NavigationResponse(true, _activeTabWindow, awaitable);
+            }
+            return new NavigationResponse(false, _activeTabWindow, null);
         }
 
-        private IWindow SetActiveIndexInternal(int index, in AccessAnimationParams accessPlayable)
+        private NavigationResponse SetActiveIndexInternal(int index, object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode, 
+            CancellationToken cancellationToken)
         {
-            if (index != ActiveTabIndex)
+            if (TryGetWindow(index, out IWindow window) && _activeTabWindow != window)
             {
-                if (_activeTabWindow != null)
-                {
-                    if (index >= 0 && index < _windows.Array.Length)
-                    {
-                        _activeTabIndex = index;
-                        IWindow targetWindow = _windows.Array[index];
+                if(data != null)
+                    window.SetData(data);
+                Awaitable awaitable = SetActiveInternal(_activeTabWindow, window, in animationRef,  length, easingMode, cancellationToken);
+                return new NavigationResponse(true, _activeTabWindow, awaitable);
+            }
+            return new NavigationResponse(false, _activeTabWindow, null);
+        }
 
-                        AccessAnimationPlayable closeAnimationPlayable;
-                        if (_activeTabWindow.AccessAnimationPlayable.Animation != null)
-                        {
-                            closeAnimationPlayable = _activeTabWindow.AccessAnimationPlayable.CreateInverse();
-                        }
-                        else
-                        {
-                            closeAnimationPlayable = _activeTabWindow.GetDefaultAccessAnimation().CreatePlayable(AccessOperation.Close, accessPlayable.EasingMode, TimeMode.Scaled);
-                        }
-                        _activeTabWindow.Close(in closeAnimationPlayable);
-                        _activeTabWindow = targetWindow;
-                        _activeTabWindow.Open(accessPlayable.CreatePlayable(_activeTabWindow, AccessOperation.Open));
+        private Awaitable SetActiveInternal(IWindow current, IWindow next, in WidgetAnimationRef animationRef, float length, EasingMode easingMode,
+            CancellationToken cancellationToken)
+        {
+            Awaitable awaitable = null;
+            if (length > 0.0F)
+            {
+                WidgetAnimationRef currentAnimationRef = _activeAnimationRef;
+                if (!currentAnimationRef.IsValid)
+                {
+                    IAnimation currentDefaultAnimation = current.GetDefaultAnimation(WidgetVisibility.Hidden);
+                    if (currentDefaultAnimation != null)
+                    {
+                        currentAnimationRef = WidgetAnimationRef.FromExplicit(currentDefaultAnimation);   
                     }
                 }
+                IAnimation hideAnimation = currentAnimationRef.Resolve(current, WidgetVisibility.Hidden);
+                IAnimation showAnimation = animationRef.Resolve(next, WidgetVisibility.Visible);
+                Awaitable[] awaitables =
+                {
+                    current.AnimateVisibility(WidgetVisibility.Hidden, hideAnimation.Playable(length, PlaybackMode.Forward, easingMode), 
+                        InterruptBehavior.Immediate, cancellationToken),
+                    next.AnimateVisibility(WidgetVisibility.Visible, showAnimation.Playable(length, PlaybackMode.Forward, easingMode), 
+                        InterruptBehavior.Immediate, cancellationToken),
+                };
+                _activeTabWindow = next;
+                awaitable = WhenAll.Await(awaitables).Awaitable;
             }
-            return _activeTabWindow;
+            else
+            {
+                current.SetVisibility(WidgetVisibility.Hidden);
+                next.SetVisibility(WidgetVisibility.Visible);
+            }
+            return awaitable;
         }
     }
 }

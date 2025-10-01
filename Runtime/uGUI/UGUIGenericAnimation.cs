@@ -6,11 +6,11 @@ namespace UIFramework.UGUI
 {
     public class UGUIGenericAnimation : GenericWidgetAnimation
     {
-        private RectTransform _displayRectTransform = null;
-        private RectTransform _rectTransform = null;
-        private CanvasGroup _canvasGroup = null;
+        private readonly RectTransform _displayRectTransform = null;
+        private readonly RectTransform _rectTransform = null;
+        private readonly CanvasGroup _canvasGroup = null;
 
-        private Vector2 _activeAnchoredPosition = Vector2.zero;
+        private readonly Vector2 _activeAnchoredPosition = Vector2.zero;
 
         private Vector3 _offDisplayLeft = Vector3.zero;
         private Vector3 _offDisplayRight = Vector3.zero;
@@ -18,7 +18,7 @@ namespace UIFramework.UGUI
         private Vector3 _offDisplayTop = Vector3.zero;
 
         public UGUIGenericAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition,
-            CanvasGroup canvasGroup, GenericAnimation type) : base(type)
+            CanvasGroup canvasGroup, GenericAnimation genericAnimation) : base(genericAnimation)
         {
             if (displayRectTransform == null)
             {
@@ -42,11 +42,9 @@ namespace UIFramework.UGUI
             _activeAnchoredPosition = activeAnchoredPosition;
         }
 
-        public override void Prepare()
+        public void Prepare()
         {
-            base.Prepare();
-
-            switch (Type)
+            switch (GenericAnimation)
             {
                 case GenericAnimation.SlideFromLeft:
                     CalculateOffDisplayLeft();

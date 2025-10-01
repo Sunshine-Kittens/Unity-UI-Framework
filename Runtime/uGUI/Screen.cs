@@ -53,7 +53,7 @@ namespace UIFramework.UGUI
         {
             if (Visibility == WidgetVisibility.Visible)
             {
-                Controller.TryCloseScreen();
+                Controller.HideActiveScreen();
             }
         }
     }
