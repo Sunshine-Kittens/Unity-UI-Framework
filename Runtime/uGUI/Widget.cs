@@ -1,4 +1,7 @@
 ﻿using System;
+
+using UIFramework.UIToolkit;
+
 using UnityEngine;
 using UnityEngine.Extension;
 using UnityEngine.UI;
@@ -87,7 +90,17 @@ namespace UIFramework.UGUI
 
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
         {
-            return null;
+            return GetGenericAnimation(GenericAnimation.Fade, visibility);
+        }
+
+        public override IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)
+        {
+            switch (visibility)
+            {
+                case WidgetVisibility.Visible:
+                    return new HideWidgetAnimation(Visual)
+            }
+            throw new InvalidOperationException("Widget visibility is unsupported.");
         }
 
         public override void ResetAnimatedProperties() { }

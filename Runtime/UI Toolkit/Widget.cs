@@ -82,7 +82,19 @@ namespace UIFramework.UIToolkit
         
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
         {
-            return null;
+            return GetGenericAnimation(GenericAnimation.Fade, visibility);
+        }
+
+        public override IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)
+        {
+            switch (visibility)
+            {
+                case WidgetVisibility.Visible:
+                    return new ShowWidgetAnimation(VisualElement, genericAnimation);
+                case WidgetVisibility.Hidden:
+                    return new HideWidgetAnimation(VisualElement, genericAnimation);
+            }
+            throw new InvalidOperationException("Widget visibility is unsupported.");
         }
 
         public override void ResetAnimatedProperties() { }

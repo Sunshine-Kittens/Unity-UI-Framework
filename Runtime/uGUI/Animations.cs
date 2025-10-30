@@ -1,14 +1,16 @@
 using System;
 
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace UIFramework.UGUI
 {
-    public class UGUIGenericAnimation : GenericWidgetAnimation
+    public class UguiGenericAnimation : GenericWidgetAnimation
     {
         private readonly RectTransform _displayRectTransform = null;
         private readonly RectTransform _rectTransform = null;
         private readonly CanvasGroup _canvasGroup = null;
+        private readonly WidgetVisibility _visibility;
 
         private readonly Vector2 _activeAnchoredPosition = Vector2.zero;
 
@@ -17,8 +19,8 @@ namespace UIFramework.UGUI
         private Vector3 _offDisplayBottom = Vector3.zero;
         private Vector3 _offDisplayTop = Vector3.zero;
 
-        public UGUIGenericAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition,
-            CanvasGroup canvasGroup, GenericAnimation genericAnimation) : base(genericAnimation)
+        public UguiGenericAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
+            GenericAnimation genericAnimation, WidgetVisibility visibility) : base(genericAnimation)
         {
             if (displayRectTransform == null)
             {
@@ -38,6 +40,7 @@ namespace UIFramework.UGUI
             _displayRectTransform = displayRectTransform;
             _rectTransform = rectTransform;
             _canvasGroup = canvasGroup;
+            _visibility = visibility;
 
             _activeAnchoredPosition = activeAnchoredPosition;
         }
@@ -61,34 +64,38 @@ namespace UIFramework.UGUI
             }
         }
 
+        private float ResolveNormalisedTime(float normalisedTime)
+        {
+            return _visibility == WidgetVisibility.Hidden ? normalisedTime : 1.0F - normalisedTime;
+        }
+        
         protected override void Fade(float normalisedTime)
         {
-            if (_canvasGroup != null)
-                _canvasGroup.alpha = normalisedTime;
+            if (_canvasGroup != null) _canvasGroup.alpha = ResolveNormalisedTime(normalisedTime);
         }
 
         protected override void SlideFromLeft(float normalisedTime)
         {
-            if (_rectTransform != null)
-                _rectTransform.anchoredPosition = Vector2.LerpUnclamped(_offDisplayLeft, _activeAnchoredPosition, normalisedTime);
+            if (_rectTransform != null) _rectTransform.anchoredPosition = 
+                Vector2.LerpUnclamped(_offDisplayLeft, _activeAnchoredPosition, ResolveNormalisedTime(normalisedTime));
         }
 
         protected override void SlideFromRight(float normalisedTime)
         {
-            if (_rectTransform != null)
-                _rectTransform.anchoredPosition = Vector2.LerpUnclamped(_offDisplayRight, _activeAnchoredPosition, normalisedTime);
+            if (_rectTransform != null) _rectTransform.anchoredPosition = 
+                Vector2.LerpUnclamped(_offDisplayRight, _activeAnchoredPosition, ResolveNormalisedTime(normalisedTime));
         }
 
         protected override void SlideFromBottom(float normalisedTime)
         {
-            if (_rectTransform != null)
-                _rectTransform.anchoredPosition = Vector2.LerpUnclamped(_offDisplayBottom, _activeAnchoredPosition, normalisedTime);
+            if (_rectTransform != null) _rectTransform.anchoredPosition = 
+                Vector2.LerpUnclamped(_offDisplayBottom, _activeAnchoredPosition, ResolveNormalisedTime(normalisedTime));
         }
 
         protected override void SlideFromTop(float normalisedTime)
         {
-            if (_rectTransform != null)
-                _rectTransform.anchoredPosition = Vector2.LerpUnclamped(_offDisplayTop, _activeAnchoredPosition, normalisedTime);
+            if (_rectTransform != null) _rectTransform.anchoredPosition = 
+                Vector2.LerpUnclamped(_offDisplayTop, _activeAnchoredPosition, ResolveNormalisedTime(normalisedTime));
         }
 
         // Flip is dependant on the pivot point of the screens rect transform
@@ -97,7 +104,7 @@ namespace UIFramework.UGUI
             if (_rectTransform != null)
             {
                 Vector3 euler = _rectTransform.eulerAngles;
-                euler.y = (1.0F - normalisedTime) * 90.0F;
+                euler.y = (1.0F - ResolveNormalisedTime(normalisedTime)) * 90.0F;
                 _rectTransform.localRotation = Quaternion.Euler(euler);
             }
         }
@@ -106,7 +113,7 @@ namespace UIFramework.UGUI
         {
             if (_rectTransform != null)
             {
-                Vector3 scale = Vector3.one * normalisedTime;
+                Vector3 scale = Vector3.one * ResolveNormalisedTime(normalisedTime);
                 _rectTransform.localScale = scale;
             }
         }
@@ -115,7 +122,8 @@ namespace UIFramework.UGUI
         {
             switch (type)
             {
-                default: return false;
+                default:
+                    return false;
                 case GenericAnimation.Fade:
                 case GenericAnimation.SlideFromLeft:
                 case GenericAnimation.SlideFromRight:
@@ -178,5 +186,71 @@ namespace UIFramework.UGUI
                 _offDisplayTop = new Vector2(_activeAnchoredPosition.x, _activeAnchoredPosition.y + distance);
             }
         }
+    }
+
+    internal abstract class WidgetAnimation : UguiGenericAnimation
+    {
+        protected WidgetAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
+            GenericAnimation genericAnimation) : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation) { }
+
+        protected override void SlideFromLeft(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.SlideFromLeft(normalisedTime);
+        }
+
+        protected override void SlideFromRight(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.SlideFromRight(normalisedTime);
+        }
+
+        protected override void SlideFromBottom(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.SlideFromBottom(normalisedTime);
+        }
+
+        protected override void SlideFromTop(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.SlideFromTop(normalisedTime);
+        }
+
+        protected override void Flip(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.Flip(normalisedTime);
+        }
+
+        protected override void Expand(float normalisedTime)
+        {
+            base.Fade(normalisedTime);
+            base.Expand(normalisedTime);
+        }
+    }
+
+    internal sealed class ShowWidgetAnimation : WidgetAnimation
+    {
+        public ShowWidgetAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
+            : base(visualElement, genericAnimation, WidgetVisibility.Visible) { }
+    }
+
+    internal sealed class HideWidgetAnimation : WidgetAnimation
+    {
+        public HideWidgetAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
+            : base(visualElement, genericAnimation, WidgetVisibility.Hidden) { }
+    }
+
+    internal sealed class ShowWindowAnimation : UitkGenericAnimation
+    {
+        public ShowWindowAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
+            : base(visualElement, genericAnimation, WidgetVisibility.Visible) { }
+    }
+
+    internal sealed class HideWindowAnimation : UitkGenericAnimation
+    {
+        public HideWindowAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
+            : base(visualElement, genericAnimation, WidgetVisibility.Hidden) { }
     }
 }

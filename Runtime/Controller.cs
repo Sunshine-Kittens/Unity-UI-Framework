@@ -62,7 +62,8 @@ namespace UIFramework
         public bool IsInitialized => State == ControllerState.Initialized;
         public ControllerState State { get; private set; } = ControllerState.Uninitialized;
         public bool IsVisible => Opacity > 0.0F;
-        public abstract float Opacity { get; }
+        public virtual float Opacity { get; }
+        private float _opacity = 1.0F;
 
         public IScreen ActiveScreen => _navigation.Active;
         public IScreen PreviousScreen => _navigation.PeekHistory();
@@ -206,6 +207,9 @@ namespace UIFramework
                     _screens[i].Initialize();
                     _screens[i].SetController(this);
                     _screens[i].SetVisibility(WidgetVisibility.Hidden);
+                    _screens[i].SetOpacity(_opacity);
+                    _screens[i].IsEnabled.Value = _isEnabled.Value;
+                    _screens[i].IsInteractable.Value = _isInteractable.Value;
                 }
                 else
                 {
@@ -218,6 +222,8 @@ namespace UIFramework
             _navigation.OnNavigationUpdate += OnNavigationUpdate;
 
             _transitionManager = new TransitionManager(TimeMode);
+            _isEnabled.OnUpdate += OnIsEnabledUpdated;
+            _isInteractable.OnUpdate += OnIsInteractableUpdated;
             
             OnInitialize();
             SetBackButtonActive(false);
@@ -237,6 +243,10 @@ namespace UIFramework
             _navigation.OnNavigationUpdate -= OnNavigationUpdate;
             _navigation = null;
             _transitionManager = null;
+            _isEnabled.OnUpdate -= OnIsEnabledUpdated;
+            _isEnabled.Reset(true);
+            _isInteractable.OnUpdate += OnIsInteractableUpdated;
+            _isInteractable.Reset(true);
             for(int i = 0; i < _screens.Length; i++)
             {
                 if (_screens[i].State == WidgetState.Initialized)
@@ -478,6 +488,8 @@ namespace UIFramework
                 {
                     targetScreen.SetVisibility(WidgetVisibility.Visible);
                 }
+                Shown?.Invoke();
+                OnShow();
             }
             return awaitable;
         }
@@ -490,6 +502,11 @@ namespace UIFramework
         private Navigation<IScreen>.Event NavigateToScreen(IScreen screen, bool excludeCurrentFromHistory)
         {
             return _navigation.Travel(screen, excludeCurrentFromHistory);
+        }
+
+        public void NavigateBack()
+        {
+            _ = HideActiveScreen(CancellationToken.None);
         }
         
         public NavigationResponse HideActiveScreen(CancellationToken cancellationToken = default)
@@ -504,7 +521,7 @@ namespace UIFramework
             }
             return new NavigationResponse(navigationEvent, awaitable);
         }
-
+        
         public NavigationResponse HideActiveScreen(in WidgetAnimationRef animationRef, float animationLength, EasingMode easingMode = EasingMode.Linear, 
             CancellationToken cancellationToken = default)
         {
@@ -576,9 +593,20 @@ namespace UIFramework
             {
                 screen.SetVisibility(WidgetVisibility.Hidden);
             }
+            Hidden?.Invoke();
+            OnHide();
             return awaitable;
         }
 
+        public void SetOpacity(float opacity)
+        {
+            _opacity = opacity;
+            for (int i = 0; i < _screens.Length; i++)
+            {
+                _screens[i].SetOpacity(opacity);
+            }
+        }
+        
         public void StartNewHistoryGroup()
         {
             _navigation.StartNewHistoryGroup();
