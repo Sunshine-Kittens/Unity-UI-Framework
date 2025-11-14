@@ -10,8 +10,6 @@ namespace UIFramework
         public IReadOnlyList<AnimationEvent> Events => _events;
         private readonly List<AnimationEvent> _events = new ();
 
-        protected WidgetAnimation() { }
-
         public abstract void Evaluate(float normalisedTime);
 
         protected void AddEvent(AnimationEvent animationEvent)

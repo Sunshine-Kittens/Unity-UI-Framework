@@ -62,7 +62,8 @@ namespace UIFramework
         public bool IsInitialized => State == ControllerState.Initialized;
         public ControllerState State { get; private set; } = ControllerState.Uninitialized;
         public bool IsVisible => Opacity > 0.0F;
-        public virtual float Opacity { get; }
+        
+        public float Opacity => _opacity;
         private float _opacity = 1.0F;
 
         public IScreen ActiveScreen => _navigation.Active;
@@ -77,8 +78,8 @@ namespace UIFramework
         public virtual TimeMode TimeMode { get => _timeMode;
             protected set => _timeMode = value;
         }
+        
         [SerializeField] private TimeMode _timeMode = TimeMode.Scaled;
-
         [SerializeField] protected ScreenCollector[] ScreenCollectors = null;
 
         public event Action Shown;

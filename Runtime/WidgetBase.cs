@@ -92,6 +92,8 @@ namespace UIFramework
         }
 
         // IWidget
+        [field: SerializeField] public string Identifier { get; private set; } = string.Empty;
+        
         public bool IsInitialized => State == WidgetState.Initialized;
         public WidgetState State { get; private set; } = WidgetState.Uninitialized;
 
@@ -120,7 +122,9 @@ namespace UIFramework
         public IScalarFlag IsInteractable => IsInteractableInternal;
         protected readonly ScalarFlag IsInteractableInternal = new(true);
 
+        public event WidgetAction Showing;
         public event WidgetAction Shown;
+        public event WidgetAction Hiding;
         public event WidgetAction Hidden;
 
         // WidgetBase
@@ -204,11 +208,13 @@ namespace UIFramework
                 switch (Visibility)
                 {
                     case WidgetVisibility.Visible:
+                        Showing?.Invoke(this);
                         OnShow(null);             
                         Shown?.Invoke(this);
                         OnShown();
                         break;
                     case WidgetVisibility.Hidden:
+                        Hiding?.Invoke(this);
                         OnHide(null);             
                         Hidden?.Invoke(this);
                         OnHidden();
@@ -292,11 +298,13 @@ namespace UIFramework
                 Visibility = visibility;
                 if (Visibility == WidgetVisibility.Visible)
                 {
-                    SetActive(true);   
+                    SetActive(true);  
+                    Showing?.Invoke(this);
                     OnShow(handle.PlaybackData);
                 }
                 else
                 {
+                    Hiding?.Invoke(this);
                     OnHide(handle.PlaybackData);
                 }
                 
@@ -410,6 +418,9 @@ namespace UIFramework
         protected abstract void SetActive(bool active);
         
         protected virtual void OnInitialize() { }
+        
+        protected virtual void OnUpdate(float deltaTime) { }
+        
         protected virtual void OnShow(AnimationPlayer.PlaybackData? animationPlaybackData) { }
         protected virtual void OnShown() { }
 

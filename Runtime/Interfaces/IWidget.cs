@@ -31,6 +31,8 @@ namespace UIFramework
     
     public interface IReadOnlyWidget
     {
+        public string Identifier { get; }
+        
         public bool IsInitialized { get; }
         public WidgetState State { get; }
         

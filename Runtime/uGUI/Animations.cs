@@ -1,7 +1,6 @@
 using System;
 
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace UIFramework.UGUI
 {
@@ -20,7 +19,7 @@ namespace UIFramework.UGUI
         private Vector3 _offDisplayTop = Vector3.zero;
 
         public UguiGenericAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
-            GenericAnimation genericAnimation, WidgetVisibility visibility) : base(genericAnimation)
+            GenericAnimation genericAnimation, WidgetVisibility visibility) : base(genericAnimation, visibility)
         {
             if (displayRectTransform == null)
             {
@@ -40,7 +39,6 @@ namespace UIFramework.UGUI
             _displayRectTransform = displayRectTransform;
             _rectTransform = rectTransform;
             _canvasGroup = canvasGroup;
-            _visibility = visibility;
 
             _activeAnchoredPosition = activeAnchoredPosition;
         }
@@ -62,11 +60,6 @@ namespace UIFramework.UGUI
                     CalculateOffDisplayTop();
                     break;
             }
-        }
-
-        private float ResolveNormalisedTime(float normalisedTime)
-        {
-            return _visibility == WidgetVisibility.Hidden ? normalisedTime : 1.0F - normalisedTime;
         }
         
         protected override void Fade(float normalisedTime)

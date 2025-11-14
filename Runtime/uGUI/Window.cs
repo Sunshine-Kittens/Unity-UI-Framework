@@ -8,7 +8,6 @@ namespace UIFramework.UGUI
     public class Window : Widget, IWindow
     {
         // IWindow
-        [field: SerializeField] public string Identifier { get; private set; } = string.Empty;
         [field: SerializeField] public bool SupportsHistory { get; private set; } = true;
 
         public override IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)

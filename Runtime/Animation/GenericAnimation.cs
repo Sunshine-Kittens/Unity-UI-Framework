@@ -1,5 +1,7 @@
 using System;
 
+using UIFramework.Animation;
+
 namespace UIFramework
 {
     /// <summary>
@@ -18,12 +20,13 @@ namespace UIFramework
         Expand
     }
 
-    public abstract class GenericWidgetAnimation : WidgetAnimation
+    public abstract class GenericWidgetAnimation : WidgetVisibilityAnimation
     {
         protected readonly GenericAnimation GenericAnimation;
         private readonly GenericAnimation _fallback;
         
-        protected GenericWidgetAnimation(GenericAnimation genericAnimation, GenericAnimation fallback = GenericAnimation.Fade)
+        protected GenericWidgetAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility, GenericAnimation fallback = GenericAnimation.Fade)
+            : base(visibility)
         {
             GenericAnimation = genericAnimation;
             _fallback = fallback;

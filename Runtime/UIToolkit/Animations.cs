@@ -5,19 +5,12 @@ namespace UIFramework.UIToolkit
 {
     internal abstract class UitkGenericAnimation : GenericWidgetAnimation
     {
-        private readonly WidgetVisibility _visibility;
         private readonly VisualElement _visualElement = null;
 
         protected UitkGenericAnimation(VisualElement visualElement, GenericAnimation genericAnimation, WidgetVisibility visibility)
-            : base(genericAnimation)
+            : base(genericAnimation, visibility)
         {
             _visualElement = visualElement ?? throw new System.ArgumentNullException(nameof(visualElement));
-            _visibility = visibility;
-        }
-
-        private float ResolveNormalisedTime(float normalisedTime)
-        {
-            return _visibility == WidgetVisibility.Hidden ? normalisedTime : 1.0F - normalisedTime;
         }
 
         protected override void Fade(float normalisedTime)

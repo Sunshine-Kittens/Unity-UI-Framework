@@ -4,7 +4,6 @@ namespace UIFramework
 {
     public interface IReadOnlyWindow : IReadOnlyWidget
     {
-        public string Identifier { get; }
         public bool SupportsHistory { get; }
     }
 
