@@ -190,8 +190,12 @@ namespace UIFramework.UGUI
 
     internal abstract class WidgetAnimation : UguiGenericAnimation
     {
-        protected WidgetAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
-            GenericAnimation genericAnimation) : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation) { }
+        protected WidgetAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup,
+            GenericAnimation genericAnimation, WidgetVisibility visibility) :
+            base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation, visibility)
+        {
+            
+        }
 
         protected override void SlideFromLeft(float normalisedTime)
         {
@@ -232,25 +236,29 @@ namespace UIFramework.UGUI
 
     internal sealed class ShowWidgetAnimation : WidgetAnimation
     {
-        public ShowWidgetAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
-            : base(visualElement, genericAnimation, WidgetVisibility.Visible) { }
+        public ShowWidgetAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
+            GenericAnimation genericAnimation) 
+            : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation, WidgetVisibility.Visible) { }
     }
 
     internal sealed class HideWidgetAnimation : WidgetAnimation
     {
-        public HideWidgetAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
-            : base(visualElement, genericAnimation, WidgetVisibility.Hidden) { }
+        public HideWidgetAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup,
+            GenericAnimation genericAnimation)
+            : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation, WidgetVisibility.Hidden) { }
     }
 
-    internal sealed class ShowWindowAnimation : UitkGenericAnimation
+    internal sealed class ShowWindowAnimation : UguiGenericAnimation
     {
-        public ShowWindowAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
-            : base(visualElement, genericAnimation, WidgetVisibility.Visible) { }
+        public ShowWindowAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
+            GenericAnimation genericAnimation) 
+            : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation, WidgetVisibility.Visible) { }
     }
 
-    internal sealed class HideWindowAnimation : UitkGenericAnimation
+    internal sealed class HideWindowAnimation : UguiGenericAnimation
     {
-        public HideWindowAnimation(VisualElement visualElement, GenericAnimation genericAnimation) 
-            : base(visualElement, genericAnimation, WidgetVisibility.Hidden) { }
+        public HideWindowAnimation(RectTransform displayRectTransform, RectTransform rectTransform, Vector3 activeAnchoredPosition, CanvasGroup canvasGroup, 
+            GenericAnimation genericAnimation) 
+            : base(displayRectTransform, rectTransform, activeAnchoredPosition, canvasGroup, genericAnimation, WidgetVisibility.Hidden) { }
     }
 }

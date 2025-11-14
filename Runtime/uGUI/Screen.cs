@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace UIFramework.UGUI
 {
-    public abstract class Screen : Window, IScreen
+    public class Screen : Window, IScreen
     {
         public Controller Controller { get; private set; } = null;
 

@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace UIFramework.UIToolkit
 {
-    public abstract class Widget : WidgetBase<Widget>
+    public class Widget : WidgetBase<Widget>
     {
         // UI Toolkit Widget
         private const string _NonInteractiveClassName = ".non-interactive";

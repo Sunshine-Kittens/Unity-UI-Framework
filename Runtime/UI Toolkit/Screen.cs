@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace UIFramework.UIToolkit
 {
-    public abstract class Screen : Window, IScreen
+    public class Screen : Window, IScreen
     {
         public Controller Controller { get; private set; } = null;
 

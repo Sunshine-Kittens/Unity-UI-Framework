@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace UIFramework.UGUI
 {
     [RequireComponent(typeof(CanvasGroup), typeof(RectTransform))]
-    public abstract class Widget : WidgetBase<Widget>
+    public class Widget : WidgetBase<Widget>
     {
         // WidgetBase
         public override int LocalSortOrder => RectTransform.GetSiblingIndex();
@@ -95,10 +95,14 @@ namespace UIFramework.UGUI
 
         public override IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)
         {
+            Canvas canvas = GetComponentInParent<Canvas>(true);
+            RectTransform canvasRectTransform = canvas.transform as RectTransform;
             switch (visibility)
             {
                 case WidgetVisibility.Visible:
-                    return new HideWidgetAnimation(Visual)
+                    return new ShowWidgetAnimation(canvasRectTransform, _rectTransform, _activeAnchoredPosition, _canvasGroup, genericAnimation);
+                case WidgetVisibility.Hidden:
+                    return new HideWidgetAnimation(canvasRectTransform, _rectTransform, _activeAnchoredPosition, _canvasGroup, genericAnimation);
             }
             throw new InvalidOperationException("Widget visibility is unsupported.");
         }
