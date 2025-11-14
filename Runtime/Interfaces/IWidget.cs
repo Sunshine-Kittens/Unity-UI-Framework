@@ -75,6 +75,9 @@ namespace UIFramework
         public Awaitable AnimateVisibility(WidgetVisibility visibility, InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, 
             CancellationToken cancellationToken = default);
         
+        public Awaitable AnimateVisibility(WidgetVisibility visibility, float length, AnimationPlaybackParams playbackParams = default, 
+            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default);
+        
         public Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlaybackParams playbackParams, 
             InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default);
         

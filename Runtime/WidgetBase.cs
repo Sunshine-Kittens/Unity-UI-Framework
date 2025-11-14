@@ -238,6 +238,17 @@ namespace UIFramework
             await AnimateVisibility(visibility, defaultAnimation.Playable(), interruptBehavior, cancellationToken);
         }
 
+        public async Awaitable AnimateVisibility(WidgetVisibility visibility, float length, AnimationPlaybackParams playbackParams = default, 
+            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
+        {
+            IAnimation defaultAnimation = GetDefaultAnimation(visibility);
+            if (defaultAnimation == null)
+            {
+                throw new InvalidOperationException("Cannot animate visibility without default animation");
+            }
+            await AnimateVisibility(visibility, defaultAnimation.Playable(length, in playbackParams), interruptBehavior, cancellationToken);
+        }
+        
         public async Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlaybackParams playbackParams, 
             InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
         {
