@@ -49,7 +49,7 @@ Shader "UI/Default++"
         Lighting Off
         ZWrite Off
         ZTest [unity_GUIZTestMode]
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend One OneMinusSrcAlpha
         ColorMask [_ColorMask]
 
         Pass 
@@ -83,6 +83,7 @@ Shader "UI/Default++"
                 fixed4 color    : COLOR;
                 float2 texcoord  : TEXCOORD0;
                 float4 worldPosition : TEXCOORD1;
+                float4  mask : TEXCOORD2;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -91,6 +92,10 @@ Shader "UI/Default++"
             fixed4 _TextureSampleAdd;
             float4 _ClipRect;
             float4 _MainTex_ST;
+            float _UIMaskSoftnessX;
+            float _UIMaskSoftnessY;
+            int _UIVertexColorAlwaysGammaSpace;
+            
             float4 _Radii;
             float4 _SizeAndBorder;
             fixed4 _BorderColor;
@@ -102,10 +107,27 @@ Shader "UI/Default++"
                 v2f OUT;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
+                float4 vPosition = UnityObjectToClipPos(v.vertex);
                 OUT.worldPosition = v.vertex;
-                OUT.vertex = UnityObjectToClipPos(OUT.worldPosition);
+                OUT.vertex = vPosition;
 
-                OUT.texcoord = TRANSFORM_TEX(v.texcoord, _MainTex);
+                float2 pixelSize = vPosition.w;
+                pixelSize /= float2(1, 1) * abs(mul((float2x2)UNITY_MATRIX_P, _ScreenParams.xy));
+
+                float4 clampedRect = clamp(_ClipRect, -2e10, 2e10);
+                float2 maskUV = (v.vertex.xy - clampedRect.xy) / (clampedRect.zw - clampedRect.xy);
+                OUT.texcoord = TRANSFORM_TEX(v.texcoord.xy, _MainTex);
+                OUT.mask = float4(v.vertex.xy * 2 - clampedRect.xy - clampedRect.zw, 0.25 / (0.25 * half2(_UIMaskSoftnessX, _UIMaskSoftnessY) + abs(pixelSize.xy)));
+
+
+                if (_UIVertexColorAlwaysGammaSpace)
+                {
+                    if(!IsGammaSpace())
+                    {
+                        v.color.rgb = UIGammaToLinear(v.color.rgb);
+                        //_GradientColor.rgb = UIGammaToLinear(_GradientColor.rgb);
+                    }
+                }
 
                 #ifdef UNITY_UI_GRADIENT_FILL
                 float r = _GradientAngle * 0.0174533;
@@ -123,10 +145,18 @@ Shader "UI/Default++"
 
             fixed4 frag(v2f IN) : SV_Target
             {
-                half4 color = (tex2D(_MainTex, IN.texcoord) + _TextureSampleAdd) * IN.color;
+                //Round up the alpha color coming from the interpolator (to 1.0/256.0 steps)
+                //The incoming alpha could have numerical instability, which makes it very sensible to
+                //HDR color transparency blend, when it blends with the world's texture.
+                const half alphaPrecision = half(0xff);
+                const half invAlphaPrecision = half(1.0/alphaPrecision);
+                IN.color.a = round(IN.color.a * alphaPrecision)*invAlphaPrecision;
+
+                half4 color = IN.color * (tex2D(_MainTex, IN.texcoord) + _TextureSampleAdd);
 
                 #ifdef UNITY_UI_CLIP_RECT
-                color.a *= UnityGet2DClipping(IN.worldPosition.xy, _ClipRect);
+                half2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(IN.mask.xy)) * IN.mask.zw);
+                color.a *= m.x * m.y;
                 #endif
 
                 #ifdef UNITY_UI_ALPHACLIP
@@ -137,6 +167,7 @@ Shader "UI/Default++"
                 color = GetRoundedBoxElementColor(_SizeAndBorder.xy, IN.texcoord, _Radii, _SizeAndBorder.z, color, _BorderColor);
                 #endif
 
+                color.rgb *= color.a;
                 return color;
             }
         ENDCG
