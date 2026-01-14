@@ -1,15 +1,15 @@
 ﻿using System;
 
-using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
-namespace UIFramework.UGUI
+namespace UIFramework.UIToolkit
 {
     public class Screen : Window, IScreen
     {
         public Controller Controller { get; private set; } = null;
 
-        protected virtual Button BackButton => null;
+        protected virtual string BackButtonName => null;
+        private Button _backButton = null;
 
         // IScreen
         public TControllerType GetController<TControllerType>() where TControllerType : Controller
@@ -29,27 +29,31 @@ namespace UIFramework.UGUI
         protected override void OnInitialize()
         {
             base.OnInitialize();
-            BackButton?.onClick.AddListener(BackButtonClicked);
+            if (!string.IsNullOrWhiteSpace(BackButtonName))
+            {
+                _backButton = VisualElement.Q<Button>(BackButtonName);
+                _backButton?.RegisterCallback<ClickEvent>(BackButtonClicked);
+            }
         }
 
         protected override void OnTerminate()
         {
             Controller = null;
-            BackButton?.onClick.RemoveListener(BackButtonClicked);
+            _backButton?.UnregisterCallback<ClickEvent>(BackButtonClicked);
             base.OnTerminate();
         }
 
         public bool SetBackButtonActive(bool active)
         {
-            if (BackButton != null)
+            if (_backButton != null)
             {
-                BackButton.gameObject.SetActive(active);
+                _backButton.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
                 return true;
             }
             return false;
         }
 
-        private void BackButtonClicked()
+        private void BackButtonClicked(ClickEvent clickEvent)
         {
             if (Visibility == WidgetVisibility.Visible)
             {

@@ -1,34 +1,17 @@
-using System;
-
 using UnityEngine.Extension;
 
 namespace UIFramework
 {
-    public interface IReadOnlyWindow : IReadOnlyUIBehaviour, IReadOnlyAccessible
+    public interface IReadOnlyWindow : IReadOnlyWidget
     {
-        string Identifier { get; }
-        
-        bool IsVisible { get; }
-        IReadOnlyScalarFlag IsHidden { get; }
-        IReadOnlyScalarFlag IsEnabled { get; }
-        IReadOnlyScalarFlag IsInteractable { get; }
-        
-        int SortOrder { get; }
+        public bool SupportsHistory { get; }
     }
 
     /// <summary>
     /// Interface <c>IWindow</c> defines expected contract for all <c>UIFramework</c> windows.
     /// </summary>
-    public interface IWindow : IReadOnlyWindow, IAccessible, IDataRecipient, IUIBehaviour
+    public interface IWindow : IReadOnlyWindow, IWidget
     {
-        new IScalarFlag IsHidden { get; }
-        new IScalarFlag IsEnabled { get; }
-        new IScalarFlag IsInteractable { get; }
-        
-        new int SortOrder { get; set; }
-        
-        GenericWindowAnimation GetAnimation(GenericWindowAnimationType type);        
-
-        bool SetWaiting(bool waiting);
+        public void SetWaiting(bool waiting);
     }
 }
