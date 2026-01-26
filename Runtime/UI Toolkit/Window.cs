@@ -407,7 +407,7 @@ namespace UIFramework.UIToolkit
                 _visualElement.PlaceInFront(parentHierarchy.ElementAt(newIndexInHierarchy));
             }
             UIDocument.sortingOrder = _sortOrder;
-            UIDocument.panelSettings.sortingOrder = _sortOrder;
+            //UIDocument.panelSettings.sortingOrder = _sortOrder;
         }
 
         private void SetInteractablePickingMode(VisualElement visualElement, PickingMode pickingMode)
