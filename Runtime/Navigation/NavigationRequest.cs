@@ -12,7 +12,7 @@ namespace UIFramework.Navigation
 {
     public readonly ref struct NavigationRequest<TWidget> where TWidget : class, IWidget
     {
-        private readonly INavigationRequestFactory<TWidget> _factory;
+        private readonly INavigatorVersion _navigatorVersion;
         private readonly INavigationRequestProcessor<TWidget> _processor;
         private readonly TWidget _sourceWidget;
         private readonly TWidget _targetWidget;
@@ -29,8 +29,7 @@ namespace UIFramework.Navigation
         private readonly EasingMode _easingMode;
         private readonly VisibilityTransitionParams? _transitionParams;
         private readonly BuilderFlags _flags;
-        
-        public readonly int NavigationVersion;
+        private readonly int _version;
         
         [Flags]
         private enum BuilderFlags : byte
@@ -45,11 +44,11 @@ namespace UIFramework.Navigation
             CancellationToken = 1 << 6
         }
 
-        internal NavigationRequest(INavigationRequestFactory<TWidget> factory, int navigationVersion, INavigationRequestProcessor<TWidget> processor, 
-            TWidget sourceWidget, TWidget targetWidget)
+        internal NavigationRequest(INavigatorVersion navigatorVersion, INavigationRequestProcessor<TWidget> processor, TWidget sourceWidget, 
+            TWidget targetWidget)
         {
-            _factory = factory;
-            NavigationVersion = navigationVersion;
+            _navigatorVersion = navigatorVersion;
+            _version = navigatorVersion.Version;
             _processor = processor;
             
             _sourceWidget = sourceWidget;
@@ -65,13 +64,13 @@ namespace UIFramework.Navigation
             _flags = BuilderFlags.None;
         }
         
-        private NavigationRequest(INavigationRequestFactory<TWidget> factory, int navigationVersion, INavigationRequestProcessor<TWidget> processor, 
-            TWidget sourceWidget, TWidget targetWidget, object data, WidgetAnimationRef animation, float length, EasingMode easingMode, bool addToHistory, 
+        private NavigationRequest(INavigatorVersion navigatorVersion, int version, INavigationRequestProcessor<TWidget> processor, TWidget sourceWidget, 
+            TWidget targetWidget, object data, WidgetAnimationRef animation, float length, EasingMode easingMode, bool addToHistory, 
             VisibilityTransitionParams? transitionParams, CancellationToken cancellationToken, BuilderFlags flags)
         {
-            _factory = factory;
+            _navigatorVersion = navigatorVersion;
+            _version = version;
             _processor = processor;
-            NavigationVersion = navigationVersion;
             
             _sourceWidget = sourceWidget;
             _targetWidget = targetWidget;
@@ -88,14 +87,14 @@ namespace UIFramework.Navigation
         
         public bool IsValid()
         {
-            return _factory.IsRequestValid(in this);
+            return _navigatorVersion.Version ==  _version;
         }
         
         public NavigationRequest<TWidget> WithData(object data)
         {
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -115,8 +114,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit animation and transition");
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -136,8 +135,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit length and transition");
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -157,8 +156,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit easing mode and transition");
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -176,8 +175,8 @@ namespace UIFramework.Navigation
         public NavigationRequest<TWidget> WithAddToHistory(bool addToHistory)
         {
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -197,8 +196,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Animation)) 
                 throw new InvalidOperationException("Cannot define both an explicit transition and animation");
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -216,8 +215,8 @@ namespace UIFramework.Navigation
         public NavigationRequest<TWidget> WithCancellation(CancellationToken cancellationToken)
         {
             return new NavigationRequest<TWidget>(
-                _factory,
-                NavigationVersion,
+                _navigatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,

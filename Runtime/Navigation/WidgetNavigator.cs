@@ -16,8 +16,13 @@ namespace UIFramework.Navigation
             WidgetType = widgetType;
         }
     }
+
+    public interface INavigatorVersion
+    {
+        public int Version { get; }
+    }
     
-    public sealed class NavigationManager<TWidget> where TWidget : class, IWidget
+    public sealed class WidgetNavigator<TWidget> : INavigatorVersion where TWidget : class, IWidget
     {
         public int Version { get; private set; }
 
@@ -32,9 +37,9 @@ namespace UIFramework.Navigation
         private readonly WidgetRegistry<TWidget> _registry;
         private readonly History _history = null;
 
-        private NavigationManager() { }
+        private WidgetNavigator() { }
 
-        public NavigationManager(WidgetRegistry<TWidget> widgetRegistry, History history)
+        public WidgetNavigator(WidgetRegistry<TWidget> widgetRegistry, History history)
         {
             _registry = widgetRegistry ?? throw new ArgumentNullException(nameof(widgetRegistry));
             _history = history;

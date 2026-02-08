@@ -1,263 +1,86 @@
 using UnityEngine.Extension;
 
-using System;
-using System.Runtime.CompilerServices;
-using System.Threading;
-
-using UIFramework.Animation;
-
-using UnityEngine;
-using UnityEngine.Extension.Awaitable;
+using UIFramework.Coordinators;
+using UIFramework.Interfaces;
+using UIFramework.Navigation;
+using UIFramework.Registry;
+using UIFramework.WidgetTransition;
 
 namespace UIFramework
 {
-    public class TabController
+    public sealed class TabController<TWidget> : 
+        IActivateRequestFactory<TWidget>,
+        IActivateIndexRequestFactory<TWidget>
+        where TWidget : class, IWidget
     {
-        public readonly struct NavigationResponse
-        {
-            public readonly bool Success;
-            public readonly IWidget Widget;
-            private readonly Awaitable _awaitable;
-
-            public NavigationResponse(bool success, IWidget widget, Awaitable awaitable)
-            {
-                Success = success;
-                Widget = widget;
-                _awaitable = awaitable;
-            }
-            
-            public Awaiter GetAwaiter() => new Awaiter(_awaitable);
-
-            public class Awaiter : INotifyCompletion
-            {
-                private readonly Awaitable _awaitable;
-                
-                public Awaiter(Awaitable awaitable)
-                {
-                    _awaitable = awaitable;
-                }
-
-                public bool IsCompleted => _awaitable == null || _awaitable.IsCompleted;
-
-                public void OnCompleted(Action continuation)
-                {
-                    if (continuation == null) throw new ArgumentNullException(nameof(continuation));
-                    if (_awaitable != null)
-                        _awaitable.GetAwaiter().OnCompleted(continuation);
-                    else
-                        continuation();
-                }
-
-                public void GetResult()
-                {
-                    if(_awaitable != null)
-                        _awaitable.GetAwaiter().GetResult();
-                }
-            }
-        }
+        public IWidgetRegistry<TWidget> Registry => _registry;
         
-        private ObjectTypeMap<IWidget> _widgets = null;
-
-        public IWidget ActiveTabWidget => _activeTabWidget;
-        private IWidget _activeTabWidget = null;
-        private WidgetAnimationRef _activeAnimationRef = default;
-
-        public int ActiveTabIndex => _activeTabIndex;
-        private int _activeTabIndex = 0;
+        public IWidget ActiveWidget => _activator.Active;
+        public int ActiveIndex => _activator.GetActiveIndex();
+        
+        public event WidgetAction WidgetShown;
+        public event WidgetAction WidgetHidden;
+        
+        private readonly WidgetRegistry<TWidget> _registry;
+        private readonly WidgetActivator<TWidget> _activator;
+        private readonly ActivateCoordinator<TWidget> _activateCoordinator;
+        private readonly ActivateIndexCoordinator<TWidget> _activateIndexCoordinator;
         
         private TabController() { }
 
-        public TabController(IWidget[] widgets, int activeTabIndex = 0)
+        public TabController(TimeMode timeMode, TWidget[] widgets, int activeTabIndex = 0)
         {
-            Populate(widgets, activeTabIndex); 
-        }
-
-        public bool IsValid()
-        {
-            return _widgets != null;
-        }
-
-        public void Clear()
-        {
-            if (_activeTabWidget != null)
+            void OnInit(IWidget widget)
             {
-                _activeTabWidget.SetVisibility(WidgetVisibility.Hidden);
+                widget.Shown += OnWidgetShown;
+                widget.Hidden += OnWidgetHidden;
+                widget.SetVisibility(WidgetVisibility.Hidden);
             }
-            _activeTabWidget = null;
-            _widgets = null;
-            _activeTabIndex = 0;
+            
+            _registry = new WidgetRegistry<TWidget>(OnInit);
+            _registry.WidgetRegistered += OnWidgetRegistered;
+            _registry.WidgetUnregistered += OnWidgetUnregistered;
+            
+            _activator = new WidgetActivator<TWidget>(_registry);
+            TransitionManager transitionManager = new TransitionManager(timeMode);
+            ActivateRequestProcessor<TWidget> processor = new ActivateRequestProcessor<TWidget>(timeMode, _activator, transitionManager);
+            _activateCoordinator = new ActivateCoordinator<TWidget>(processor, _registry, _activator);
+            _activateIndexCoordinator = new ActivateIndexCoordinator<TWidget>(processor, _registry, _activator);
         }
 
-        public void Populate(IWidget[] widgets, int activeTabIndex = 0)
+        public ActivateRequest<TWidget> CreateActivateRequest(TWidget widget)
         {
-            if (_widgets != null)
-            {
-                Clear();
-            }
-            _widgets = new ObjectTypeMap<IWidget>(widgets);
-            for (int i = 0; i < _widgets.Array.Length; i++)
-            {
-                _widgets.Array[i].Initialize();
-                if (i == activeTabIndex)
-                {
-                    _widgets.Array[i].SetVisibility(WidgetVisibility.Visible);
-                    _activeTabWidget = _widgets.Array[i];
-                    _activeTabIndex = i;
-                }
-            }
-
-            if (_activeTabWidget == null && _widgets.Array.Length > 0)
-            {
-                _activeTabWidget = _widgets.Array[0];
-                _activeTabWidget.SetVisibility(WidgetVisibility.Visible);
-            }
-        }
-
-        public NavigationResponse SetActive<TWidget>(GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
-            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default) where TWidget : IWidget
-        {
-            return SetActiveWidgetInternal<TWidget>(null, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActive<TWidget>(object data, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
-            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default) where TWidget : IWidget
-        {
-            return SetActiveWidgetInternal<TWidget>(data, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
+            return _activateCoordinator.CreateActivateRequest(widget);
         }
         
-        public NavigationResponse SetActive<TWidget>(in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
-            CancellationToken cancellationToken = default) where TWidget : IWidget
+        public ActivateRequest<TWidget> CreateActivateRequest<TTarget>() where TTarget : class, TWidget
         {
-            return SetActiveWidgetInternal<TWidget>(null, in animationRef, length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActive<TWidget>(object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
-            CancellationToken cancellationToken = default) where TWidget : IWidget
-        {
-            return SetActiveWidgetInternal<TWidget>(data, in animationRef, length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActiveIndex(int index, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
-            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default)
-        {
-            return SetActiveIndexInternal(index, null, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActiveIndex(int index, object data, GenericAnimation genericAnimation = GenericAnimation.Fade, float length = 0.3F, 
-            EasingMode easingMode = EasingMode.Linear, CancellationToken cancellationToken = default)
-        {
-            return SetActiveIndexInternal(index, data, WidgetAnimationRef.FromGeneric(genericAnimation), length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActiveIndex(int index, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
-        CancellationToken cancellationToken = default)
-        {
-            return SetActiveIndexInternal(index, null, in animationRef, length, easingMode, cancellationToken);
-        }
-
-        public NavigationResponse SetActiveIndex(int index, object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode = EasingMode.Linear,
-            CancellationToken cancellationToken = default)
-        {
-            return SetActiveIndexInternal(index, data, in animationRef, length, easingMode, cancellationToken);
-        }
-
-        private bool TryGetWidget<TWidget>(out IWidget widget, out int index) where TWidget : IWidget
-        {
-            if (_widgets.Dictionary.TryGetValue(typeof(TWidget), out widget))
-            {
-                for (int i = 0; i < _widgets.Array.Length; i++)
-                {
-                    if (_widgets.Array[i] == widget)
-                    {
-                        index = i;
-                        return true;
-                    }
-                }
-            }
-            index = -1;
-            return false;
+            return _activateCoordinator.CreateActivateRequest<TTarget>();
         }
         
-        private bool TryGetWidget(int index, out IWidget widget)
+        public ActivateRequest<TWidget> CreateActivateRequest(int index)
         {
-            if (_widgets.Array.IsValidIndex(index))
-            {
-                widget = _widgets.Array[index];
-                return true;
-            }
-            widget = null;
-            return false;
+            return _activateIndexCoordinator.CreateActivateRequest(index);
         }
         
-        private NavigationResponse SetActiveWidgetInternal<TWidget>(object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode, 
-            CancellationToken cancellationToken)
-            where TWidget : IWidget
+        private void OnWidgetShown(IWidget widget)
         {
-            if (TryGetWidget<TWidget>(out IWidget widget, out int index) && _activeTabWidget != widget)
-            {
-                if(data != null)
-                    widget.SetData(data);
-                Awaitable awaitable = SetActiveInternal(_activeTabWidget, widget, in animationRef,  length, easingMode, cancellationToken);
-                return new NavigationResponse(true, _activeTabWidget, awaitable);
-            }
-            return new NavigationResponse(false, _activeTabWidget, null);
+            WidgetShown?.Invoke(widget);
         }
 
-        private NavigationResponse SetActiveIndexInternal(int index, object data, in WidgetAnimationRef animationRef, float length, EasingMode easingMode, 
-            CancellationToken cancellationToken)
+        private void OnWidgetHidden(IWidget widget)
         {
-            if (TryGetWidget(index, out IWidget widget) && _activeTabWidget != widget)
-            {
-                if(data != null)
-                    widget.SetData(data);
-                Awaitable awaitable = SetActiveInternal(_activeTabWidget, widget, in animationRef,  length, easingMode, cancellationToken);
-                return new NavigationResponse(true, _activeTabWidget, awaitable);
-            }
-            return new NavigationResponse(false, _activeTabWidget, null);
+            WidgetHidden?.Invoke(widget);
+        }
+        
+        private void OnWidgetRegistered(TWidget widget)
+        {
+            
         }
 
-        private Awaitable SetActiveInternal(IWidget current, IWidget next, in WidgetAnimationRef animationRef, float length, EasingMode easingMode,
-            CancellationToken cancellationToken)
+        private void OnWidgetUnregistered(TWidget widget)
         {
-            Awaitable awaitable = null;
-            if (length > 0.0F)
-            {
-                WidgetAnimationRef currentAnimationRef = _activeAnimationRef;
-                if (!currentAnimationRef.IsValid)
-                {
-                    IAnimation currentDefaultAnimation = current.GetDefaultAnimation(WidgetVisibility.Hidden);
-                    if (currentDefaultAnimation != null)
-                    {
-                        currentAnimationRef = WidgetAnimationRef.FromExplicit(currentDefaultAnimation);   
-                    }
-                }
-                IAnimation hideAnimation = currentAnimationRef.Resolve(current, WidgetVisibility.Hidden);
-                IAnimation showAnimation = animationRef.Resolve(next, WidgetVisibility.Visible);
-                Awaitable[] awaitables =
-                {
-                    current.AnimateVisibility(WidgetVisibility.Hidden)
-                        .WithAnimation(hideAnimation)
-                        .WithLength(length)
-                        .WithEasingMode(easingMode)
-                        .WithCancellation(cancellationToken)
-                        .Animate(),
-                    next.AnimateVisibility(WidgetVisibility.Visible)
-                        .WithAnimation(showAnimation)
-                        .WithLength(length)
-                        .WithEasingMode(easingMode)
-                        .WithCancellation(cancellationToken)
-                        .Animate()
-                };
-                _activeTabWidget = next;
-                _activeAnimationRef = animationRef;
-                awaitable = WhenAll.Await(awaitables).Awaitable;
-            }
-            else
-            {
-                current.SetVisibility(WidgetVisibility.Hidden);
-                next.SetVisibility(WidgetVisibility.Visible);
-            }
-            return awaitable;
+            
         }
     }
 }

@@ -12,6 +12,7 @@ namespace UIFramework.Navigation
 {
     public readonly ref struct ActivateRequest<TWidget> where TWidget : class, IWidget
     {
+        private readonly IActivatorVersion _activatorVersion;
         private readonly IActivateRequestProcessor<TWidget> _processor;
         private readonly TWidget _sourceWidget;
         private readonly TWidget _targetWidget;
@@ -27,6 +28,7 @@ namespace UIFramework.Navigation
         private readonly EasingMode _easingMode;
         private readonly VisibilityTransitionParams? _transitionParams;
         private readonly BuilderFlags _flags;
+        private readonly int _version;
         
         [Flags]
         private enum BuilderFlags : byte
@@ -40,8 +42,10 @@ namespace UIFramework.Navigation
             CancellationToken = 1 << 5
         }
 
-        internal ActivateRequest(IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget)
+        internal ActivateRequest(IActivatorVersion activatorVersion, IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget)
         {
+            _activatorVersion = activatorVersion;
+            _version = activatorVersion.Version;
             _processor = processor;
             
             _sourceWidget = sourceWidget;
@@ -56,9 +60,11 @@ namespace UIFramework.Navigation
             _flags = BuilderFlags.None;
         }
         
-        private ActivateRequest(IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget, object data, WidgetAnimationRef animation, float length, 
+        private ActivateRequest(IActivatorVersion activatorVersion, int version, IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget, object data, WidgetAnimationRef animation, float length, 
             EasingMode easingMode, VisibilityTransitionParams? transitionParams, CancellationToken cancellationToken, BuilderFlags flags)
         {
+            _activatorVersion = activatorVersion;
+            _version = version;
             _processor = processor;
             
             _sourceWidget = sourceWidget;
@@ -76,6 +82,8 @@ namespace UIFramework.Navigation
         public ActivateRequest<TWidget> WithData(object data)
         {
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -94,6 +102,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit animation and transition");
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -112,6 +122,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit length and transition");
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -130,6 +142,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit easing mode and transition");
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -148,6 +162,8 @@ namespace UIFramework.Navigation
             if(_flags.HasFlag(BuilderFlags.Animation)) 
                 throw new InvalidOperationException("Cannot define both an explicit transition and animation");
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -164,6 +180,8 @@ namespace UIFramework.Navigation
         public ActivateRequest<TWidget> WithCancellation(CancellationToken cancellationToken)
         {
             return new ActivateRequest<TWidget>(
+                _activatorVersion,
+                _version,
                 _processor,
                 _sourceWidget,
                 _targetWidget,
@@ -177,7 +195,7 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateResult<TWidget> Execute()
+        public ActivateResponse<TWidget> Execute()
         {
             return _processor.ProcessActivateRequest(in this);
         }

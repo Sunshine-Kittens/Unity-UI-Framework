@@ -36,7 +36,7 @@ namespace UIFramework.Controllers
         public float Opacity => _opacity;
         private float _opacity = 1.0F;
 
-        public TWidget ActiveWidget => _navigationManager.Active;
+        public TWidget ActiveWidget => _widgetNavigator.Active;
 
         public TWidget PreviousWidget
         {
@@ -80,7 +80,7 @@ namespace UIFramework.Controllers
 
         private WidgetRegistry<TWidget> _registry;
         private History _history;
-        private NavigationManager<TWidget> _navigationManager;
+        private WidgetNavigator<TWidget> _widgetNavigator;
         private TransitionManager _transitionManager;
         
         private NavigationCoordinator<TWidget> _navigationCoordinator;
@@ -191,13 +191,13 @@ namespace UIFramework.Controllers
 
             _history = new History(_registry.Widgets.Count, _registry.Widgets.Count);
             
-            _navigationManager = new NavigationManager<TWidget>(_registry, _history);
-            _navigationManager.OnNavigationUpdate += OnNavigationUpdate;
+            _widgetNavigator = new WidgetNavigator<TWidget>(_registry, _history);
+            _widgetNavigator.OnNavigationUpdate += OnNavigationUpdate;
             
             _transitionManager = new TransitionManager(TimeMode);
-            _navigationCoordinator = new NavigationCoordinator<TWidget>(TimeMode, _registry, _navigationManager, _history, _transitionManager);
-            _returnCoordinator = new ReturnCoordinator<TWidget>(_navigationManager, _history, _transitionManager);
-            _exitCoordinator = new ExitCoordinator<TWidget>(TimeMode, _navigationManager, _transitionManager);
+            _navigationCoordinator = new NavigationCoordinator<TWidget>(TimeMode, _registry, _widgetNavigator, _history, _transitionManager);
+            _returnCoordinator = new ReturnCoordinator<TWidget>(_widgetNavigator, _history, _transitionManager);
+            _exitCoordinator = new ExitCoordinator<TWidget>(TimeMode, _widgetNavigator, _transitionManager);
             
             _isEnabled.OnUpdate += OnIsEnabledUpdated;
             _isInteractable.OnUpdate += OnIsInteractableUpdated;
@@ -228,8 +228,8 @@ namespace UIFramework.Controllers
             } 
             _registry = null;
             _navigationCoordinator = null;
-            _navigationManager.OnNavigationUpdate -= OnNavigationUpdate;
-            _navigationManager = null;
+            _widgetNavigator.OnNavigationUpdate -= OnNavigationUpdate;
+            _widgetNavigator = null;
             _transitionManager = null;
             _isEnabled.OnUpdate -= OnIsEnabledUpdated;
             _isEnabled.Reset(true);
@@ -255,11 +255,6 @@ namespace UIFramework.Controllers
         public NavigationRequest<TWidget> CreateNavigationRequest<TTarget>() where TTarget : class, TWidget
         {
             return _navigationCoordinator.CreateNavigationRequest<TTarget>();
-        }
-        
-        public bool IsRequestValid(in NavigationRequest<TWidget> request)
-        {
-            return _navigationCoordinator.IsRequestValid(request);
         }
         
         public NavigationResponse<TWidget> Return(CancellationToken cancellationToken = default)

@@ -11,20 +11,20 @@ namespace UIFramework.Coordinators
 {
     public class ReturnCoordinator<TWidget> : IReturnNavigator<TWidget> where TWidget : class, IWidget
     {
-        private readonly NavigationManager<TWidget> _navigationManager;
+        private readonly WidgetNavigator<TWidget> _widgetNavigator;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
         
-        public ReturnCoordinator(NavigationManager<TWidget> navigationManager, History history, TransitionManager transitionManager)
+        public ReturnCoordinator(WidgetNavigator<TWidget> widgetNavigator, History history, TransitionManager transitionManager)
         {
             _transitionManager = transitionManager;
-            _navigationManager = navigationManager;
+            _widgetNavigator = widgetNavigator;
             _history = history;
         }
 
         public NavigationResponse<TWidget> Return(CancellationToken cancellationToken = default)
         {
-            NavigationResult<TWidget> result = _navigationManager.Return();
+            NavigationResult<TWidget> result = _widgetNavigator.Return();
             Awaitable awaitable = null;
             if (result.Success)
             {

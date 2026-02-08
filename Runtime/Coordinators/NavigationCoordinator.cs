@@ -24,39 +24,34 @@ namespace UIFramework.Coordinators
     {
         private readonly TimeMode _timeMode;
         private readonly WidgetRegistry<TWidget> _registry;
-        private readonly NavigationManager<TWidget> _navigationManager;
+        private readonly WidgetNavigator<TWidget> _widgetNavigator;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
         
-        public NavigationCoordinator(TimeMode timeMode, WidgetRegistry<TWidget> registry, NavigationManager<TWidget> navigationManager,
+        public NavigationCoordinator(TimeMode timeMode, WidgetRegistry<TWidget> registry, WidgetNavigator<TWidget> widgetNavigator,
             History history, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _registry = registry;
-            _navigationManager = navigationManager;
+            _widgetNavigator = widgetNavigator;
             _history = history;
             _transitionManager = transitionManager;
-        }
-
-        public bool IsRequestValid(in NavigationRequest<TWidget> request)
-        {
-            return request.NavigationVersion == _navigationManager.Version;
         }
         
         public NavigationRequest<TWidget> CreateNavigationRequest(TWidget widget)
         {
-            return new NavigationRequest<TWidget>(this, _navigationManager.Version, this, _navigationManager.Active, widget);
+            return new NavigationRequest<TWidget>(_widgetNavigator, this, _widgetNavigator.Active, widget);
         }
         
         public NavigationRequest<TWidget> CreateNavigationRequest<TTarget>() where TTarget : class, TWidget
         {
-            return new NavigationRequest<TWidget>(this, _navigationManager.Version, this, _navigationManager.Active, _registry.Get<TTarget>());
+            return new NavigationRequest<TWidget>(_widgetNavigator, this, _widgetNavigator.Active, _registry.Get<TTarget>());
         }
 
         public NavigationResponse<TWidget> ProcessNavigationRequest(in NavigationRequest<TWidget> request)
         {
             Awaitable awaitable = null;
-            NavigationResult<TWidget> result = _navigationManager.Navigate(request.Widget, request.AddToHistory);
+            NavigationResult<TWidget> result = _widgetNavigator.Navigate(request.Widget, request.AddToHistory);
             if (result.Success)
             {
                 awaitable = Navigate(request.Transition, result.Active, result.Previous, request.Data, 

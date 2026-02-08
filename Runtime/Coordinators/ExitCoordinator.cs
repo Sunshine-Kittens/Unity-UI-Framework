@@ -10,19 +10,19 @@ namespace UIFramework.Coordinators
     public class ExitCoordinator<TWidget> : IExitNavigator<TWidget> where TWidget : class, IWidget
     {
         private readonly TimeMode _timeMode;
-        private readonly NavigationManager<TWidget> _navigationManager;
+        private readonly WidgetNavigator<TWidget> _widgetNavigator;
         private readonly TransitionManager _transitionManager;
         
-        public ExitCoordinator(TimeMode timeMode, NavigationManager<TWidget> navigationManager, TransitionManager transitionManager)
+        public ExitCoordinator(TimeMode timeMode, WidgetNavigator<TWidget> widgetNavigator, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _transitionManager = transitionManager;
-            _navigationManager = navigationManager;
+            _widgetNavigator = widgetNavigator;
         }
 
         public NavigationResponse<TWidget> Exit(in ExitRequest request)
         {
-            NavigationResult<TWidget> result = _navigationManager.Clear();
+            NavigationResult<TWidget> result = _widgetNavigator.Clear();
             Awaitable awaitable = null;
             if (result.Success)
             {

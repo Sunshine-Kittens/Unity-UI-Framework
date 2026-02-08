@@ -7,8 +7,15 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Navigation
 {
-    public class WidgetActivator<TWidget> where TWidget : class, IWidget
+    public interface IActivatorVersion
     {
+        public int Version { get; }
+    }
+    
+    public class WidgetActivator<TWidget> : IActivatorVersion where TWidget : class, IWidget
+    {
+        public int Version { get; private set; }
+        
         public TWidget Active => ActiveType != null ? _registry.Get(ActiveType) : null;
         public Type ActiveType { get; private set; } = null;
 
@@ -42,24 +49,16 @@ namespace UIFramework.Navigation
             {
                 return Activate(targetType, target, index);
             }
-            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(false, Active, _cachedActiveIndex));
-        }
-        
-        public ActivateResult<TWidget> ActivateIndex(int index)
-        {
-            if (_registry.Widgets.IsValidIndex(_cachedActiveIndex))
-            {
-                TWidget widget = _registry.Widgets[_cachedActiveIndex];
-                return Activate(widget.GetType(), widget, index);
-            }
-            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(false, Active, _cachedActiveIndex));
+            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(false, Active, null, _cachedActiveIndex));
         }
         
         private ActivateResult<TWidget> Activate(Type type, TWidget target, int index)
         {
+            TWidget previous = Active;
             ActiveType = type;
             _cachedActiveIndex = index;
-            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, target, index));
+            Version++;
+            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, target, previous, index));
         }
         
         private bool ValidateTarget(Type type, TWidget target, out int index)
@@ -117,7 +116,7 @@ namespace UIFramework.Navigation
         {
             if (widget.GetType() == ActiveType)
             {
-                // Do something...
+                //TODO: Do something...
             }
             UpdateActiveIndex();
         }

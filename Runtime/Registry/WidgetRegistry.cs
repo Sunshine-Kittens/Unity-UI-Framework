@@ -5,7 +5,25 @@ using UIFramework.Collectors;
 
 namespace UIFramework.Registry
 {
-    public class WidgetRegistry<TWidget> where TWidget : class, IWidget
+    //TODO: Add clear method
+    public interface IWidgetRegistry<TWidget> where TWidget : class, IWidget
+    {
+        public void Register(TWidget widget);
+        public void Unregister(TWidget widget);
+
+        public TWidget Get<TWidgetType>() where TWidgetType : class, TWidget;
+        public TWidget Get(Type widgetType);
+
+        public bool TryGet<TWidgetType>(out TWidgetType widget) where TWidgetType : class, TWidget;
+        public bool TryGet<TWidgetType>(out TWidgetType widget, out int index) where TWidgetType : class, TWidget;
+        public bool TryGet(Type widgetType, out TWidget widget);
+        public bool TryGet(Type widgetType, out TWidget widget, out int index);
+
+        public int IndexOf<TWidgetType>() where TWidgetType : class, TWidget;
+        public int IndexOf(Type widgetType);
+    }
+    
+    public class WidgetRegistry<TWidget> : IWidgetRegistry<TWidget> where TWidget : class, IWidget
     {
         public IReadOnlyList<TWidget> Widgets => _widgets;
 
