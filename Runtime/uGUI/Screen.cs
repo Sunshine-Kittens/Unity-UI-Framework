@@ -1,5 +1,7 @@
 ﻿using System;
 
+using UIFramework.Interfaces;
+
 using UnityEngine;
 using UnityEngine.UI;
 

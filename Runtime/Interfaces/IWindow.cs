@@ -2,10 +2,7 @@ using UnityEngine.Extension;
 
 namespace UIFramework
 {
-    public interface IReadOnlyWindow : IReadOnlyWidget
-    {
-        public bool SupportsHistory { get; }
-    }
+    public interface IReadOnlyWindow : IReadOnlyWidget { }
 
     /// <summary>
     /// Interface <c>IWindow</c> defines expected contract for all <c>UIFramework</c> windows.

@@ -1,13 +1,22 @@
 using System;
+
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.Animation
 {
     public readonly struct WidgetAnimationRef : IEquatable<WidgetAnimationRef>
     {
+        private enum Type : byte
+        {
+            None, 
+            Generic, 
+            Explicit
+        }
+        
+        public static WidgetAnimationRef None => default;
+        
         public bool IsValid => _type != Type.None;
         
-        private enum Type { None, Generic, Explicit }
         private readonly Type _type;
         private readonly IAnimation _widgetAnimation;
         private readonly GenericAnimation _genericAnimation;
@@ -17,8 +26,8 @@ namespace UIFramework
             _type = type;
             _widgetAnimation = widgetAnimation;
             _genericAnimation = genericAnimation;
-        }        
-
+        }
+        
         public static WidgetAnimationRef FromGeneric(GenericAnimation animationType)
         {
             return new WidgetAnimationRef(Type.Generic, null, animationType);
@@ -27,11 +36,12 @@ namespace UIFramework
         public static WidgetAnimationRef FromExplicit(IAnimation widgetAnimation)
         {
             if(widgetAnimation == null) throw new ArgumentNullException(nameof(widgetAnimation));
-            return new WidgetAnimationRef(Type.Generic, widgetAnimation, default);
+            return new WidgetAnimationRef(Type.Explicit, widgetAnimation, default);
         }
 
         public IAnimation Resolve(IWidget widget, WidgetVisibility visibility)
         {
+            if(widget == null) throw new ArgumentNullException(nameof(widget));
             switch (_type)
             {
                 case Type.Explicit:
@@ -45,7 +55,9 @@ namespace UIFramework
 
         public bool Equals(WidgetAnimationRef other)
         {
-            return Equals(_widgetAnimation, other._widgetAnimation) && _genericAnimation.Equals(other._genericAnimation);
+            return _type == other._type
+                && Equals(_widgetAnimation, other._widgetAnimation) 
+                && _genericAnimation.Equals(other._genericAnimation);
         }
 
         public override bool Equals(object obj)
@@ -55,7 +67,17 @@ namespace UIFramework
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(_widgetAnimation, _genericAnimation);
+            return HashCode.Combine(_widgetAnimation, _genericAnimation, _type);
+        }
+        
+        public static bool operator ==(WidgetAnimationRef left, WidgetAnimationRef right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(WidgetAnimationRef left, WidgetAnimationRef right)
+        {
+            return !left.Equals(right);
         }
     }
 }

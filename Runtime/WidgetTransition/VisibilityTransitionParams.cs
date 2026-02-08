@@ -1,9 +1,11 @@
 using System;
 
+using UIFramework.Animation;
+
 using UnityEngine;
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.WidgetTransition
 {
     public enum TransitionSortPriority
     {

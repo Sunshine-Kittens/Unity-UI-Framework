@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
+using UIFramework.Animation;
+
 using UnityEngine;
 using UnityEngine.Extension;
 using UnityEngine.Extension.Awaitable;
 
-namespace UIFramework
+namespace UIFramework.WidgetTransition
 {
     public class TransitionManager
     {
@@ -67,7 +69,11 @@ namespace UIFramework
             {
                 if (!widgetAnimationRef.IsValid) throw new InvalidOperationException("Invalid implicit animation.");
                 IAnimation widgetAnimation = widgetAnimationRef.Resolve(widget, visibility);
-                return widgetAnimation.Playable(length, 0.0F, PlaybackMode.Forward, easingMode, _timeMode);
+                return widgetAnimation.ToPlayable()
+                    .WithLength(length)
+                    .WithEasingMode(easingMode)
+                    .WithTimeMode(_timeMode)
+                    .Create();
             }
 
             public Params CreateInverted()
@@ -98,7 +104,7 @@ namespace UIFramework
 
         public bool IsTransitionActive => _transitions.Count > 0;
         public IWidget ActiveTarget => _transitions.Count > 0 ? _transitions[0].Key.Target : null;
-        public IWidget ActiveSource => _transitions.Count > 0 ? _transitions[0].Key.Target : null;
+        public IWidget ActiveSource => _transitions.Count > 0 ? _transitions[0].Key.Source : null;
 
         private Params? _activeTransition => _transitions.Count > 0 ? _transitions[0].Key : null;
         
@@ -156,11 +162,13 @@ namespace UIFramework
             _transitions.RemoveAt(0);
         }
 
+        // TODO: This needs to presumably do something...
         public async Awaitable SkipActive()
         {
             if (IsTransitionActive) { }
         }
 
+        // TODO: This needs to presumably do something...
         public async Awaitable SkipAll()
         {
             if (IsTransitionActive) { }

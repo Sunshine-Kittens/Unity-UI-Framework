@@ -1,6 +1,8 @@
+using UIFramework.Animation;
+
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.WidgetTransition
 {
     public static class Transition
     {

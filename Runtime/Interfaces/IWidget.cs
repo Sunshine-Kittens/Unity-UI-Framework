@@ -1,5 +1,7 @@
 using System.Threading;
 
+using UIFramework.Animation;
+
 using UnityEngine;
 using UnityEngine.Extension;
 
@@ -72,14 +74,9 @@ namespace UIFramework
         
         public void SetVisibility(WidgetVisibility visibility);
         
-        public Awaitable AnimateVisibility(WidgetVisibility visibility, InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, 
-            CancellationToken cancellationToken = default);
+        public bool IsVisibilityState(WidgetVisibility visibility, bool? isAnimating = null);
         
-        public Awaitable AnimateVisibility(WidgetVisibility visibility, float length, AnimationPlaybackParams playbackParams = default, 
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default);
-        
-        public Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlaybackParams playbackParams, 
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default);
+        public VisibilityAnimationBuilder AnimateVisibility(WidgetVisibility visibility);
         
         public Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlayable playable, 
             InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default);

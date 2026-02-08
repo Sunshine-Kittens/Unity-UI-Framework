@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
+using UIFramework.Animation;
+
 using UnityEngine;
 using UnityEngine.Extension;
 
@@ -14,15 +16,15 @@ namespace UIFramework
             public AnimationPlayer.PlaybackData PlaybackData => _animationPlayer.Data;
             public Awaitable AnimationAwaitable => _animationCompletionSource.Awaitable;
             public Awaitable CompletedAwaitable => _completedCompletionSource.Awaitable;
-            
-            private readonly AwaitableCompletionSource _animationCompletionSource = new ();
-            private readonly AwaitableCompletionSource _completedCompletionSource = new ();
+
+            private readonly AwaitableCompletionSource _animationCompletionSource = new();
+            private readonly AwaitableCompletionSource _completedCompletionSource = new();
             private AnimationPlayer _animationPlayer = null;
             private bool _isCanceled = false;
             private bool _isComplete = false;
 
             public bool IsComplete => _isComplete || _isCanceled;
-            
+
             private VisibilityAnimationHandle() { }
 
             public VisibilityAnimationHandle(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
@@ -37,7 +39,7 @@ namespace UIFramework
                 _animationCompletionSource.TrySetCanceled();
                 _completedCompletionSource.TrySetCanceled();
             }
-            
+
             private void OnAnimationComplete(IAnimation animation)
             {
                 _animationCompletionSource.SetResult();
@@ -56,14 +58,14 @@ namespace UIFramework
                     _animationPlayer = null;
                 }
             }
-            
+
             public void Cancel()
             {
                 CancelAnimation();
                 _isCanceled = true;
                 _completedCompletionSource.SetCanceled();
             }
-            
+
             public void CompleteAnimation()
             {
                 if (_animationPlayer != null)
@@ -77,23 +79,23 @@ namespace UIFramework
                     _animationPlayer = null;
                 }
             }
-            
+
             public void Complete()
             {
                 CompleteAnimation();
                 _isComplete = true;
-                _completedCompletionSource.SetResult();  
+                _completedCompletionSource.SetResult();
             }
 
             public AnimationPlayer DuplicateAnimationPlayer()
             {
-                return _animationPlayer != null ? AnimationPlayer.Duplicate(_animationPlayer) :null; 
+                return _animationPlayer != null ? AnimationPlayer.Duplicate(_animationPlayer) : null;
             }
         }
 
         // IWidget
         [field: SerializeField] public string Identifier { get; private set; } = string.Empty;
-        
+
         public bool IsInitialized => State == WidgetState.Initialized;
         public WidgetState State { get; private set; } = WidgetState.Uninitialized;
 
@@ -161,7 +163,7 @@ namespace UIFramework
             _queuedAnimationCts = null;
             _animationHandle = null;
             SetActive(false);
-            Visibility = WidgetVisibility.Hidden;            
+            Visibility = WidgetVisibility.Hidden;
             ResetAnimatedProperties();
             _isEnabled.Reset(true);
             _isEnabled.OnUpdate -= OnIsEnabledUpdated;
@@ -174,7 +176,7 @@ namespace UIFramework
 
         public IWidget GetChildAt(int index)
         {
-            if (_children.IsValidIndex(index)) throw new ArgumentOutOfRangeException(nameof(index));
+            if (!_children.IsValidIndex(index)) throw new ArgumentOutOfRangeException(nameof(index));
             return _children[index];
         }
 
@@ -202,20 +204,20 @@ namespace UIFramework
                     ResetAnimatedProperties();
                     _animationHandle = null;
                 }
-                
+
                 Visibility = visibility;
                 SetActive(Visibility == WidgetVisibility.Visible);
                 switch (Visibility)
                 {
                     case WidgetVisibility.Visible:
                         Showing?.Invoke(this);
-                        OnShow(null);             
+                        OnShow(null);
                         Shown?.Invoke(this);
                         OnShown();
                         break;
                     case WidgetVisibility.Hidden:
                         Hiding?.Invoke(this);
-                        OnHide(null);             
+                        OnHide(null);
                         Hidden?.Invoke(this);
                         OnHidden();
                         break;
@@ -223,129 +225,103 @@ namespace UIFramework
             }
             else if (IsAnimating)
             {
-                SkipAnimation();
+                _ = SkipAnimation();
             }
         }
 
-        public async Awaitable AnimateVisibility(WidgetVisibility visibility, InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, 
-            CancellationToken cancellationToken = default)
+        public bool IsVisibilityState(WidgetVisibility visibility, bool? isAnimating = null)
         {
-            IAnimation defaultAnimation = GetDefaultAnimation(visibility);
-            if (defaultAnimation == null)
-            {
-                throw new InvalidOperationException("Cannot animate visibility without default animation");
-            }
-            await AnimateVisibility(visibility, defaultAnimation.Playable(), interruptBehavior, cancellationToken);
+            bool animationStateMatch = !isAnimating.HasValue || isAnimating.Value == IsAnimating; 
+            return visibility == Visibility && animationStateMatch;
         }
 
-        public async Awaitable AnimateVisibility(WidgetVisibility visibility, float length, AnimationPlaybackParams playbackParams = default, 
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
+        public VisibilityAnimationBuilder AnimateVisibility(WidgetVisibility visibility)
         {
-            IAnimation defaultAnimation = GetDefaultAnimation(visibility);
-            if (defaultAnimation == null)
-            {
-                throw new InvalidOperationException("Cannot animate visibility without default animation");
-            }
-            await AnimateVisibility(visibility, defaultAnimation.Playable(length, in playbackParams), interruptBehavior, cancellationToken);
+            return new VisibilityAnimationBuilder(this, visibility);
         }
-        
-        public async Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlaybackParams playbackParams, 
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
+
+        public async Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlayable playable, InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
         {
-            IAnimation defaultAnimation = GetDefaultAnimation(visibility);
-            if (defaultAnimation == null)
+            if (visibility == Visibility) return;
+
+            if (IsAnimating && interruptBehavior == InterruptBehavior.Ignore) throw new OperationCanceledException();
+
+            VisibilityAnimationHandle handle = null;
+            CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            if (IsAnimating)
             {
-                throw new InvalidOperationException("Cannot animate visibility without default animation");
-            }
-            await AnimateVisibility(visibility, defaultAnimation.Playable(in playbackParams), interruptBehavior, cancellationToken);
-        }
-        
-        public async Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlayable playable, 
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
-        {
-            if (visibility != Visibility)
-            {
-                if (IsAnimating && interruptBehavior == InterruptBehavior.Ignore)
-                    throw new OperationCanceledException();
-                
-                VisibilityAnimationHandle handle = null;
-                CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                
-                if (IsAnimating)
+                VisibilityAnimationHandle currentHandle = _animationHandle;
+                _queuedAnimationCts?.Cancel();
+                if (interruptBehavior == InterruptBehavior.Queue)
                 {
-                    VisibilityAnimationHandle currentHandle = _animationHandle;
-                    _queuedAnimationCts?.Cancel();
-                    if (interruptBehavior == InterruptBehavior.Queue)
-                    {
-                        _queuedAnimationCts = cts;
-                        await currentHandle.CompletedAwaitable;
-                    }
-                    else
-                    {
-                        _animationCts?.Cancel();
-                    }
-                    
-                    if (interruptBehavior == InterruptBehavior.Rewind)
-                    {
-                        AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
-                        animationPlayer.Rewind();
-                        handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
-                    }
+                    _queuedAnimationCts = cts;
+                    await currentHandle.CompletedAwaitable;
                 }
                 else
                 {
-                    IsInteractableInternal.SetOverrideValue(false);
+                    _animationCts?.Cancel();
                 }
-                
-                if(handle ==  null)
+
+                if (interruptBehavior == InterruptBehavior.Rewind)
                 {
-                    AnimationPlayer animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, 
-                        playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
+                    AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
+                    animationPlayer.Rewind();
                     handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
                 }
-                _animationCts = cts;
-                _animationHandle = handle;
-                
-                Visibility = visibility;
-                if (Visibility == WidgetVisibility.Visible)
-                {
-                    SetActive(true);  
-                    Showing?.Invoke(this);
-                    OnShow(handle.PlaybackData);
-                }
-                else
-                {
-                    Hiding?.Invoke(this);
-                    OnHide(handle.PlaybackData);
-                }
-                
-                try
-                {
-                    await handle.AnimationAwaitable;
-                }
-                catch (OperationCanceledException)
-                {
-                    handle.Cancel();
-                    throw;
-                }
-                
-                ResetAnimatedProperties();
-                IsInteractableInternal.SetOverrideValue(true);
-                
-                if (Visibility == WidgetVisibility.Visible)
-                {
-                    Shown?.Invoke(this);
-                    OnShown();
-                }
-                else
-                {
-                    Hidden?.Invoke(this);
-                    OnHidden();
-                }
-                handle.Complete();
             }
-        }
+            else
+            {
+                IsInteractableInternal.SetOverrideValue(false);
+            }
 
+            if (handle == null)
+            {
+                AnimationPlayer animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
+                handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
+            }
+            _animationCts = cts;
+            _animationHandle = handle;
+
+            Visibility = visibility;
+            if (Visibility == WidgetVisibility.Visible)
+            {
+                SetActive(true);
+                Showing?.Invoke(this);
+                OnShow(handle.PlaybackData);
+            }
+            else
+            {
+                Hiding?.Invoke(this);
+                OnHide(handle.PlaybackData);
+            }
+
+            try
+            {
+                await handle.AnimationAwaitable;
+            }
+            catch (OperationCanceledException)
+            {
+                handle.Cancel();
+                throw;
+            }
+
+            ResetAnimatedProperties();
+            IsInteractableInternal.SetOverrideValue(true);
+
+            if (Visibility == WidgetVisibility.Visible)
+            {
+                Shown?.Invoke(this);
+                OnShown();
+            }
+            else
+            {
+                Hidden?.Invoke(this);
+                OnHidden();
+            }
+            handle.Complete();
+        }
+        
         public abstract IAnimation GetDefaultAnimation(WidgetVisibility visibility);
         public abstract IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility);
 
@@ -366,7 +342,7 @@ namespace UIFramework
                 await AnimateVisibility(Visibility ^ (WidgetVisibility)1, default(AnimationPlayable), InterruptBehavior.Rewind, cancellationToken);
             }
         }
-        
+
         public virtual void ResetAnimatedProperties() { }
 
         public void SortAbove(IWidget target)
@@ -375,7 +351,7 @@ namespace UIFramework
         }
 
         public void SortBelow(IWidget target)
-        {   
+        {
             SortAgainst(target, -1);
         }
 
@@ -383,14 +359,17 @@ namespace UIFramework
         {
             SortAgainst(target, 0);
         }
-        
+
         public abstract void SetLocalSortOrder(int sortOrder);
         public abstract void SetGlobalSortOrder(int sortOrder);
         public abstract void SetRenderSortOrder(int sortOrder);
         public abstract void SetOpacity(float opacity);
 
-        public virtual bool IsValidData(object data) { return false; }
-        
+        public virtual bool IsValidData(object data)
+        {
+            return false;
+        }
+
         public virtual void SetData(object data) { }
 
         // Unity Messages
@@ -427,11 +406,11 @@ namespace UIFramework
         protected abstract void OnIsEnabledUpdated(bool value);
         protected abstract void OnIsInteractableUpdated(bool value);
         protected abstract void SetActive(bool active);
-        
+
         protected virtual void OnInitialize() { }
-        
+
         protected virtual void OnUpdate(float deltaTime) { }
-        
+
         protected virtual void OnShow(AnimationPlayer.PlaybackData? animationPlaybackData) { }
         protected virtual void OnShown() { }
 

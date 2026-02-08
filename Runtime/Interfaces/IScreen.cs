@@ -1,4 +1,6 @@
-namespace UIFramework
+using UIFramework.Controllers;
+
+namespace UIFramework.Interfaces
 {
     public interface IReadOnlyScreen : IReadOnlyWindow
     {
@@ -7,10 +9,10 @@ namespace UIFramework
 
     public interface IScreen : IReadOnlyScreen, IWindow 
     {
-        public Controller Controller { get; }
+        public ScreenController Controller { get; }
 
-        public TControllerType GetController<TControllerType>() where TControllerType : Controller;
-        public void SetController(Controller controller);
+        public TControllerType GetController<TControllerType>() where TControllerType : ScreenController;
+        public void SetController(ScreenController controller);
         public bool SetBackButtonActive(bool active);
     }
 }
