@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Threading;
 
 using UIFramework.Animation;
+using UIFramework.Core.Interfaces;
 
 using UnityEngine;
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.Core
 {
     public abstract class WidgetBase<TWidget> : MonoBehaviour, IWidget where TWidget : WidgetBase<TWidget>
     {

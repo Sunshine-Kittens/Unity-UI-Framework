@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 
+using UIFramework.Core.Interfaces;
+
 using UnityEngine;
 using UnityEngine.Extension;
 

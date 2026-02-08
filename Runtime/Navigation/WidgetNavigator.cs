@@ -1,5 +1,7 @@
 using System;
 
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
 using UIFramework.Registry;
 
 using UnityEngine;

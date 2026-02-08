@@ -1,8 +1,8 @@
 using System;
 
-using UIFramework.Animation;
+using UIFramework.Core.Interfaces;
 
-namespace UIFramework
+namespace UIFramework.Animation
 {
     /// <summary>
     /// Type of animation. Some assumptions are made.

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+using UIFramework.Core.Interfaces;
+
 using UnityEngine;
 
 namespace UIFramework.Collectors

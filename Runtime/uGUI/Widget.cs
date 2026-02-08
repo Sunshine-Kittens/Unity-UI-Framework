@@ -1,5 +1,9 @@
 ﻿using System;
 
+using UIFramework.Animation;
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
+
 using UnityEngine;
 using UnityEngine.Extension;
 using UnityEngine.UI;

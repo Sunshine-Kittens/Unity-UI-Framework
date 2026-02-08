@@ -1,3 +1,5 @@
+using UIFramework.Core.Interfaces;
+
 namespace UIFramework.Animation
 {
     public abstract class WidgetVisibilityAnimation : WidgetAnimation

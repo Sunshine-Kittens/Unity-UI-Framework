@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 using UIFramework.Collectors;
-using UIFramework.Interfaces;
+using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
 
 namespace UIFramework.Controllers

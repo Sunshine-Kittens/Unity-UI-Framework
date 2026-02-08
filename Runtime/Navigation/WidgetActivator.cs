@@ -1,5 +1,6 @@
 using System;
 
+using UIFramework.Core.Interfaces;
 using UIFramework.Registry;
 
 using UnityEngine;

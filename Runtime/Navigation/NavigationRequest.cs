@@ -2,7 +2,9 @@ using System;
 using System.Threading;
 
 using UIFramework.Animation;
-using UIFramework.Interfaces;
+using UIFramework.Core.Interfaces;
+using UIFramework.Navigation.Interfaces;
+using UIFramework.Transitioning;
 using UIFramework.WidgetTransition;
 
 using UnityEngine;
@@ -242,12 +244,12 @@ namespace UIFramework.Navigation
         {
             return (_flags.HasFlag(BuilderFlags.Length) && Mathf.Approximately(_length, 0.0F)) ||
                 (!_flags.HasFlag(BuilderFlags.Animation) && !_flags.HasFlag(BuilderFlags.Transition)) ||
-                (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.GetValueOrDefault() == WidgetTransition.Transition.None());
+                (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.GetValueOrDefault() == Transitioning.Transition.None());
         }
         
         private VisibilityTransitionParams ResolveTransition()
         {
-            if (IsInstant()) return WidgetTransition.Transition.None();
+            if (IsInstant()) return Transitioning.Transition.None();
             
             if (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.HasValue)
                 return _transitionParams.Value;
@@ -258,12 +260,12 @@ namespace UIFramework.Navigation
                 _targetWidget.GetDefaultAnimation(WidgetVisibility.Visible);
 
             if (exitAnimation == null && entryAnimation == null)
-                return WidgetTransition.Transition.None();
+                return Transitioning.Transition.None();
             
             float length = _flags.HasFlag(BuilderFlags.Length) ? _length : entryAnimation.Length;
             EasingMode easingMode = _flags.HasFlag(BuilderFlags.EasingMode) ? _easingMode : EasingMode.Linear;
             
-            return WidgetTransition.Transition.Custom(length, easingMode, exitAnimation, entryAnimation, TransitionSortPriority.Target);
+            return Transitioning.Transition.Custom(length, easingMode, exitAnimation, entryAnimation, TransitionSortPriority.Target);
         }
     }
 }

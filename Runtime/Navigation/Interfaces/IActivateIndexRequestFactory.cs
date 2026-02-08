@@ -1,6 +1,6 @@
-using UIFramework.Navigation;
+using UIFramework.Core.Interfaces;
 
-namespace UIFramework.Interfaces
+namespace UIFramework.Navigation.Interfaces
 {
     public interface IActivateIndexRequestFactory<TWidget> where TWidget : class, IWidget
     {

@@ -4,9 +4,12 @@ using System.Threading;
 
 using UIFramework.Collectors;
 using UIFramework.Coordinators;
-using UIFramework.Interfaces;
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.Interfaces;
 using UIFramework.Registry;
+using UIFramework.Transitioning;
 using UIFramework.WidgetTransition;
 
 using UnityEngine;

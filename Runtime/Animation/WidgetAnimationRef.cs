@@ -1,5 +1,7 @@
 using System;
 
+using UIFramework.Core.Interfaces;
+
 using UnityEngine.Extension;
 
 namespace UIFramework.Animation

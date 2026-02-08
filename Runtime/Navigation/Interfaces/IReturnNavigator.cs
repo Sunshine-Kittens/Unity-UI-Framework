@@ -1,8 +1,8 @@
 using System.Threading;
 
-using UIFramework.Navigation;
+using UIFramework.Core.Interfaces;
 
-namespace UIFramework.Interfaces
+namespace UIFramework.Navigation.Interfaces
 {
     public interface IReturnNavigator<TWidget> where TWidget : class, IWidget
     {

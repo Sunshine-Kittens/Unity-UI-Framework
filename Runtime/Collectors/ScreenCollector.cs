@@ -1,4 +1,4 @@
-using UIFramework.Interfaces;
+using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Collectors
 {

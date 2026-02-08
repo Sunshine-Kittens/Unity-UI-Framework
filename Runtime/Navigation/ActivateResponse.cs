@@ -1,3 +1,5 @@
+using UIFramework.Core.Interfaces;
+
 using UnityEngine;
 
 namespace UIFramework.Navigation

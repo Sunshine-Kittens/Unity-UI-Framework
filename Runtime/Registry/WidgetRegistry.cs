@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 
 using UIFramework.Collectors;
+using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Registry
 {

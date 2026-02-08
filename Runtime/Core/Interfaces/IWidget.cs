@@ -5,7 +5,7 @@ using UIFramework.Animation;
 using UnityEngine;
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.Core.Interfaces
 {
     public enum WidgetState
     {

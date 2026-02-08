@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Threading;
 
 using UIFramework.Animation;
+using UIFramework.Core.Interfaces;
 
 using UnityEngine;
 using UnityEngine.Extension;
 using UnityEngine.Extension.Awaitable;
 
-namespace UIFramework.WidgetTransition
+namespace UIFramework.Transitioning
 {
     public class TransitionManager
     {

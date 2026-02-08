@@ -1,6 +1,6 @@
 ﻿using System;
 
-using UIFramework.Interfaces;
+using UIFramework.Core.Interfaces;
 
 using UnityEngine.UIElements;
 

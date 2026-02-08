@@ -1,6 +1,6 @@
 using System;
 
-namespace UIFramework
+namespace UIFramework.Core
 {
     public class UIDataException : Exception
     {

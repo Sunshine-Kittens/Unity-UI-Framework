@@ -5,7 +5,7 @@ using UIFramework.Animation;
 using UnityEngine;
 using UnityEngine.Extension;
 
-namespace UIFramework.WidgetTransition
+namespace UIFramework.Transitioning
 {
     public enum TransitionSortPriority
     {

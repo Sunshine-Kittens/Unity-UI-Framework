@@ -1,3 +1,5 @@
+using UIFramework.Core.Interfaces;
+
 namespace UIFramework.Navigation
 {
     public readonly struct ActivateResult<TWidget> where TWidget : class, IWidget

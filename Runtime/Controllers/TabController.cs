@@ -1,12 +1,13 @@
+using UIFramework.Coordinators;
+using UIFramework.Core.Interfaces;
+using UIFramework.Navigation;
+using UIFramework.Navigation.Interfaces;
+using UIFramework.Registry;
+using UIFramework.Transitioning;
+
 using UnityEngine.Extension;
 
-using UIFramework.Coordinators;
-using UIFramework.Interfaces;
-using UIFramework.Navigation;
-using UIFramework.Registry;
-using UIFramework.WidgetTransition;
-
-namespace UIFramework
+namespace UIFramework.Controllers
 {
     public sealed class TabController<TWidget> : 
         IActivateRequestFactory<TWidget>,

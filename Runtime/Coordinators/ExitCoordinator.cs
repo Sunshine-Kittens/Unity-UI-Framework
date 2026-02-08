@@ -1,5 +1,7 @@
-using UIFramework.Interfaces;
+using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.Interfaces;
+using UIFramework.Transitioning;
 using UIFramework.WidgetTransition;
 
 using UnityEngine;

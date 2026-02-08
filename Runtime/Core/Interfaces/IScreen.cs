@@ -1,6 +1,6 @@
 using UIFramework.Controllers;
 
-namespace UIFramework.Interfaces
+namespace UIFramework.Core.Interfaces
 {
     public interface IReadOnlyScreen : IReadOnlyWindow
     {

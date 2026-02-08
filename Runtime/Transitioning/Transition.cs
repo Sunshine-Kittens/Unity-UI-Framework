@@ -1,8 +1,9 @@
 using UIFramework.Animation;
+using UIFramework.WidgetTransition;
 
 using UnityEngine.Extension;
 
-namespace UIFramework.WidgetTransition
+namespace UIFramework.Transitioning
 {
     public static class Transition
     {

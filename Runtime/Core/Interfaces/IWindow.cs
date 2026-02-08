@@ -1,6 +1,4 @@
-using UnityEngine.Extension;
-
-namespace UIFramework
+namespace UIFramework.Core.Interfaces
 {
     public interface IReadOnlyWindow : IReadOnlyWidget { }
 
