@@ -20,22 +20,31 @@ namespace UIFramework
         public void Append(IHistoryEvent historyEvent);
     }
 
-    public interface IReadOnlyHistory
+    public interface IReadOnlyHistoryStack
     {
         public int Count { get; }
         
         public IHistoryEntry Peek();
     }
-    
-    public interface IHistory : IReadOnlyHistory
+
+    public interface IHistoryStack : IReadOnlyHistoryStack
     {
         public IHistoryEntry PushNewEntry();
         public void CommitEntry(Guid guid);
         public void CancelEntry(Guid guid);
         public IHistoryEntry Pop();
+    }
+    
+    public interface IHistoryGroups
+    {
         public void AddNewGroup();
         public bool ClearActiveGroup();
         public bool Clear();
+    }
+    
+    public interface IHistory : IHistoryStack, IHistoryGroups
+    {
+        
     }
     
     // Note: This is not thread safe

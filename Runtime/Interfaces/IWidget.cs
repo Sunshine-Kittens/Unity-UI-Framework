@@ -63,7 +63,9 @@ namespace UIFramework
         public new IScalarFlag IsEnabled { get; }
         public new IScalarFlag IsInteractable { get; }
         
+        public event WidgetAction Showing;
         public event WidgetAction Shown;
+        public event WidgetAction Hiding;
         public event WidgetAction Hidden;
         
         public void Initialize();

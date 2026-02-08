@@ -17,7 +17,6 @@ namespace UIFramework.Navigation
         }
     }
     
-    // TODO: Implement version so that we can use this to validate the navigation requests
     public sealed class NavigationManager<TWidget> where TWidget : class, IWidget
     {
         public int Version { get; private set; }

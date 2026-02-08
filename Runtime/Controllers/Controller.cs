@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 using UIFramework.Collectors;
 using UIFramework.Coordinators;
@@ -23,8 +24,8 @@ namespace UIFramework.Controllers
     public abstract class Controller<TWidget> : MonoBehaviour, 
         IUpdatable,
         INavigationRequestFactory<TWidget>, 
-        IReturnRequestFactory<TWidget>,
-        IExitRequestFactory<TWidget> 
+        IReturnNavigator<TWidget>,
+        IExitNavigator<TWidget> 
         where TWidget : class, IWidget
     {
         public bool Active => gameObject.activeInHierarchy;
@@ -36,7 +37,23 @@ namespace UIFramework.Controllers
         private float _opacity = 1.0F;
 
         public TWidget ActiveWidget => _navigationManager.Active;
-        public TWidget PreviousWidget => _navigationManager.PeekHistory();
+
+        public TWidget PreviousWidget
+        {
+            get
+            {
+                IHistoryEntry entry = _history.Peek();
+                if (entry != null)
+                {
+                    if(entry.TryGetEvent(out NavigationHistoryEvent navigationEvent))
+                    {
+                        _registry.TryGet(navigationEvent.WidgetType, out TWidget widget);
+                        return widget;
+                    }
+                }
+                return null;
+            }
+        }
         
         public IScalarFlag IsEnabled => _isEnabled;
         private readonly ScalarFlag _isEnabled = new(true);
@@ -52,6 +69,8 @@ namespace UIFramework.Controllers
         
         [SerializeField] private TimeMode _timeMode = TimeMode.Scaled;
 
+        public IHistoryGroups HistoryGroups => _history;
+        
         protected abstract IEnumerable<WidgetCollector<TWidget>> Collectors { get; }
 
         public event Action Shown;
@@ -173,11 +192,11 @@ namespace UIFramework.Controllers
             _history = new History(_registry.Widgets.Count, _registry.Widgets.Count);
             
             _navigationManager = new NavigationManager<TWidget>(_registry, _history);
-            _navigationManager.OnNavigationUpdate += NavigationManagerUpdate;
+            _navigationManager.OnNavigationUpdate += OnNavigationUpdate;
             
             _transitionManager = new TransitionManager(TimeMode);
-            _navigationCoordinator = new NavigationCoordinator<TWidget>(TimeMode, _registry, _navigationManager, _transitionManager);
-            _returnCoordinator = new ReturnCoordinator<TWidget>(_navigationManager, _transitionManager, _history);
+            _navigationCoordinator = new NavigationCoordinator<TWidget>(TimeMode, _registry, _navigationManager, _history, _transitionManager);
+            _returnCoordinator = new ReturnCoordinator<TWidget>(_navigationManager, _history, _transitionManager);
             _exitCoordinator = new ExitCoordinator<TWidget>(TimeMode, _navigationManager, _transitionManager);
             
             _isEnabled.OnUpdate += OnIsEnabledUpdated;
@@ -194,8 +213,9 @@ namespace UIFramework.Controllers
                 throw new InvalidOperationException("Controller cannot be terminated.");
             }
 
-            HideAll();
-            ClearHistory();
+            _exitCoordinator.Exit(new ExitRequest());
+            
+            _history.Clear();
             if(_registry != null)
             {
                 foreach (TWidget widget in _registry.Widgets)
@@ -208,7 +228,7 @@ namespace UIFramework.Controllers
             } 
             _registry = null;
             _navigationCoordinator = null;
-            _navigationManager.OnNavigationUpdate -= NavigationManagerUpdate;
+            _navigationManager.OnNavigationUpdate -= OnNavigationUpdate;
             _navigationManager = null;
             _transitionManager = null;
             _isEnabled.OnUpdate -= OnIsEnabledUpdated;
@@ -242,24 +262,14 @@ namespace UIFramework.Controllers
             return _navigationCoordinator.IsRequestValid(request);
         }
         
-        public ReturnRequest<TWidget> CreateReturnRequest()
+        public NavigationResponse<TWidget> Return(CancellationToken cancellationToken = default)
         {
-            return _returnCoordinator.CreateReturnRequest();
-        }
-
-        public bool IsRequestValid(in ReturnRequest<TWidget> request)
-        {
-            return _returnCoordinator.IsRequestValid(request);
+            return _returnCoordinator.Return(cancellationToken);
         }
         
-        public ExitRequest<TWidget> CreateExitRequest()
+        public NavigationResponse<TWidget> Exit(in ExitRequest request)
         {
-            return _exitCoordinator.CreateExitRequest();
-        }
-        
-        public bool IsRequestValid(in ExitRequest<TWidget> request)
-        {
-            return _exitCoordinator.IsRequestValid(request);
+            return _exitCoordinator.Exit(in request);
         }
         
         public void SetOpacity(float opacity)
@@ -273,47 +283,10 @@ namespace UIFramework.Controllers
                 }   
             }
         }
-        
-        public void StartNewHistoryGroup()
-        {
-            _navigationManager.StartNewHistoryGroup();
-            _transitionHistory.StartNewGroup();
-        }
 
-        public void ClearLatestHistoryGroup()
+        protected virtual void OnNavigationUpdate(NavigationResult<TWidget> navigationResult)
         {
-            NavigationManager<IScreen>.Result navigationResult = _navigationManager.ClearLatestHistoryGroup();
-            if (navigationResult.Success)
-            {
-                _transitionHistory.ClearLatestGroup();
-            }
-        }
-
-        public void InsertHistory<TScreenType>(in VisibilityTransitionParams transitionPlayable) where TScreenType : IScreen
-        {
-            NavigationManager<IScreen>.Result navigationResult = _navigationManager.InsertHistory<TScreenType>();
-            if (navigationResult.Success)
-            {
-                _transitionHistory.Push(transitionPlayable);
-            }
-        }
-
-        public void ClearHistory()
-        {
-            NavigationManager<IScreen>.Result navigationResult = _navigationManager.ClearHistory();
-            if (navigationResult.Success)
-            {
-                _transitionHistory.Clear();
-            }
-        }
-
-        private void NavigationManagerUpdate(NavigationResult<TWidget> navigationResult)
-        {
-            if (navigationResult.Success)
-            {
-                bool backButtonActive = navigationResult.HistoryCount > 0;
-                SetBackButtonActive(backButtonActive);
-            }
+            
         }
 
         private void OnWidgetShown(IWidget widget)
@@ -328,17 +301,17 @@ namespace UIFramework.Controllers
         
         private void OnIsEnabledUpdated(bool value)
         {
-            for (int i = 0; i < _screens.Length; i++)
+            for (int i = 0; i < _registry.Widgets.Count; i++)
             {
-                _screens[i].IsEnabled.Value = value;
+                _registry.Widgets[i].IsEnabled.Value = value;
             }
         }
         
         private void OnIsInteractableUpdated(bool value)
         {
-            for (int i = 0; i < _screens.Length; i++)
+            for (int i = 0; i < _registry.Widgets.Count; i++)
             {
-                _screens[i].IsInteractable.Value = value;
+                _registry.Widgets[i].IsInteractable.Value = value;
             }
         }
     }
