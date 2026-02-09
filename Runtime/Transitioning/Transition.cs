@@ -1,5 +1,4 @@
 using UIFramework.Animation;
-using UIFramework.WidgetTransition;
 
 using UnityEngine.Extension;
 

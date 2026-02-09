@@ -15,14 +15,14 @@ namespace UIFramework.Transitioning
     {
         private readonly struct Params : IEquatable<Params>
         {
-            public readonly VisibilityTransitionParams VisibilityTransition;
+            public readonly VisibilityTransitionParams Transition;
             public readonly IWidget Source;
             public readonly IWidget Target;
             private readonly TimeMode _timeMode;
 
-            public Params(in VisibilityTransitionParams visibilityTransition, IWidget source, IWidget target, TimeMode timeMode)
+            public Params(in VisibilityTransitionParams transition, IWidget source, IWidget target, TimeMode timeMode)
             {
-                VisibilityTransition = visibilityTransition;
+                Transition = transition;
                 Source = source;
                 Target = target;
                 _timeMode = timeMode;
@@ -35,12 +35,12 @@ namespace UIFramework.Transitioning
 
             public bool Equals(Params other)
             {
-                return VisibilityTransition == other.VisibilityTransition && Source == other.Source && Target == other.Target;
+                return Transition == other.Transition && Source == other.Source && Target == other.Target;
             }
 
             public override int GetHashCode()
             {
-                return HashCode.Combine(VisibilityTransition, Source, Target);
+                return HashCode.Combine(Transition, Source, Target);
             }
 
             public static bool operator ==(Params lhs, Params rhs)
@@ -55,14 +55,14 @@ namespace UIFramework.Transitioning
 
             public AnimationPlayable CreateTargetPlayable()
             {
-                return CreatePlayable(Target, WidgetVisibility.Visible, VisibilityTransition.EntryAnimationRef, VisibilityTransition.Length,
-                    VisibilityTransition.EasingMode);
+                return CreatePlayable(Target, WidgetVisibility.Visible, Transition.EntryAnimationRef, Transition.Length,
+                    Transition.EasingMode);
             }
 
             public AnimationPlayable CreateSourcePlayable()
             {
-                return CreatePlayable(Target, WidgetVisibility.Hidden, VisibilityTransition.ExitAnimationRef, VisibilityTransition.Length,
-                    VisibilityTransition.EasingMode);
+                return CreatePlayable(Target, WidgetVisibility.Hidden, Transition.ExitAnimationRef, Transition.Length,
+                    Transition.EasingMode);
             }
 
             private AnimationPlayable CreatePlayable(IWidget widget, WidgetVisibility visibility, WidgetAnimationRef widgetAnimationRef,
@@ -80,7 +80,7 @@ namespace UIFramework.Transitioning
             public Params CreateInverted()
             {
                 TransitionSortPriority sortPriority;
-                switch (VisibilityTransition.SortPriority)
+                switch (Transition.SortPriority)
                 {
                     default:
                         sortPriority = TransitionSortPriority.Auto;
@@ -93,23 +93,35 @@ namespace UIFramework.Transitioning
                         break;
                 }
                 VisibilityTransitionParams transitionParams = new VisibilityTransitionParams(
-                    VisibilityTransition.Length,
-                    VisibilityTransition.EasingMode.GetInverseEasingMode(),
-                    VisibilityTransition.EntryAnimationRef,
-                    VisibilityTransition.ExitAnimationRef,
+                    Transition.Length,
+                    Transition.EasingMode.GetInverseEasingMode(),
+                    Transition.EntryAnimationRef,
+                    Transition.ExitAnimationRef,
                     sortPriority
                 );
                 return new Params(in transitionParams, Target, Source, _timeMode);
             }
         }
 
-        public bool IsTransitionActive => _transitions.Count > 0;
-        public IWidget ActiveTarget => _transitions.Count > 0 ? _transitions[0].Key.Target : null;
-        public IWidget ActiveSource => _transitions.Count > 0 ? _transitions[0].Key.Source : null;
+        private sealed class Entry
+        {
+            public readonly Params Params;
+            public readonly CancellationTokenSource Cts;
 
-        private Params? _activeTransition => _transitions.Count > 0 ? _transitions[0].Key : null;
+            public Entry(Params @params, CancellationTokenSource cts)
+            {
+                Params = @params;
+                Cts = cts;
+            }
+        }
         
-        private readonly List<KeyValuePair<Params, CancellationTokenSource>> _transitions = new();
+        public bool IsTransitionActive => _active != null;
+        public IWidget ActiveTarget => _active != null ? _active.Params.Target : null;
+        public IWidget ActiveSource => _active != null ? _active.Params.Source : null;
+
+        private Entry _active = null;
+        private readonly List<Entry> _pending = new();
+        
         private readonly TimeMode _timeMode = TimeMode.Scaled;
 
         private TransitionManager() { }
@@ -119,97 +131,151 @@ namespace UIFramework.Transitioning
             _timeMode = timeMode;
         }
 
-        public async Awaitable Transition(VisibilityTransitionParams visibilityTransition, IWidget sourceWidget, IWidget targetWidget,
+        public async Awaitable Transition(VisibilityTransitionParams transition, IWidget sourceWidget, IWidget targetWidget,
             CancellationToken cancellationToken = default)
         {
             if (sourceWidget == null) throw new ArgumentNullException(nameof(sourceWidget));
             if (targetWidget == null) throw new ArgumentNullException(nameof(targetWidget));
 
-            Params transitionParams = new Params(visibilityTransition, sourceWidget, targetWidget, _timeMode);
-            CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _transitions.Add(new KeyValuePair<Params, CancellationTokenSource>(transitionParams, cts));
-            CancellationToken token = cts.Token;
-
-            if (IsTransitionActive)
+            IWidget expectedSource = GetExpectedSource();
+            if (expectedSource != null && !ReferenceEquals(expectedSource, sourceWidget))
             {
-                if (_transitions[0].Key.Target != sourceWidget)
-                    throw new InvalidOperationException($"Cannot transition from {sourceWidget} to {_transitions[0].Key.Target}");
+                throw new InvalidOperationException(
+                    $"Cannot transition from {sourceWidget}; expected source is {expectedSource}.");
+            }
 
-                bool FindCts(KeyValuePair<Params, CancellationTokenSource> pair) => pair.Value == cts;
-                while (_transitions.Count > 0 && _transitions[0].Value != cts)
+            Params @params = new Params(transition, sourceWidget, targetWidget, _timeMode);
+            CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            Entry entry = new Entry(@params, linkedCts);
+            _pending.Add(entry);
+            
+            CancellationToken token = linkedCts.Token;
+            try
+            {
+                while (!IsActive(entry))
                 {
-                    if (token.IsCancellationRequested)
-                    {
-                        int index = _transitions.FindIndex(FindCts);
-                        if (index >= 0)
-                        {
-                            for (int i = _transitions.Count - 1; i > index; i--)
-                            {
-                                CancellationTokenSource queuedCts = _transitions[i].Value;
-                                _transitions.RemoveAt(i);
-                                queuedCts.Cancel();
-                            }
-                            _transitions.RemoveAt(index);
-                        }
+                    token.ThrowIfCancellationRequested();
+                
+                    if (!IsPending(entry))
                         throw new OperationCanceledException(token);
+                
+                    if (_active == null && _pending.Count > 0 && ReferenceEquals(_pending[0], entry))
+                    {
+                        _pending.RemoveAt(0);
+                        _active = entry;
+                        break;
                     }
                     await Awaitable.NextFrameAsync(token);
                 }
-
-                if (!_activeTransition.HasValue || !_activeTransition.Value.Equals(transitionParams))
-                    throw new InvalidOperationException("A queued transition was not successfully canceled.");
+                await ExecuteTransition(@params, token);
             }
-            await ExecuteTransition(transitionParams, token);
-            _transitions.RemoveAt(0);
+            catch (OperationCanceledException)
+            {
+                if (IsActive(entry))
+                {
+                    CancelAllPending();
+                }
+                else
+                {
+                    CancelPendingAfter(entry);
+                }
+                throw;
+            }
+            finally
+            {
+                if (IsActive(entry))
+                {
+                    _active = null;
+                    PromoteNextIfAny();
+                }
+                else
+                {
+                    RemovePending(entry);
+                }
+                linkedCts.Dispose();
+            }
         }
-
-        // TODO: This needs to presumably do something...
+        
         public async Awaitable SkipActive()
         {
-            if (IsTransitionActive) { }
+            if (_active == null)
+                return;
+
+            Params @params = _active.Params;
+            CancellationToken token = CancellationToken.None;
+            switch (@params.Transition.Target)
+            {
+                case TransitionTarget.Both:
+                    await WhenAll.Await(token, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                    break;
+                case TransitionTarget.Target:
+                    await WhenAll.Await(token, @params.Target.SkipAnimation());
+                    break;
+                case TransitionTarget.Source:
+                    await WhenAll.Await(token, @params.Source.SkipAnimation());
+                    break;
+            }
         }
 
-        // TODO: This needs to presumably do something...
         public async Awaitable SkipAll()
         {
-            if (IsTransitionActive) { }
-        }
+            if (_active == null)
+                return;
 
-        public async Awaitable RewindActive(CancellationToken cancellationToken)
-        {
-            if (IsTransitionActive)
+            Params @params = _active.Params;
+            CancellationToken token = CancellationToken.None;
+            switch (@params.Transition.Target)
             {
-                Params rewindParams = _transitions[0].Key.CreateInverted();
-                for (int i = _transitions.Count - 1; i > 0; i--)
-                {
-                    CancellationTokenSource queuedCts = _transitions[i].Value;
-                    _transitions.RemoveAt(i);
-                    queuedCts.Cancel();
-                }
-                _transitions[0].Value.Cancel();
-                CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                _transitions[0] = new KeyValuePair<Params, CancellationTokenSource>(rewindParams, cts);
-                switch (rewindParams.VisibilityTransition.Target)
-                {
-                    case TransitionTarget.Both:
-                        await WhenAll.Await(cts.Token, rewindParams.Source.RewindAnimation(cts.Token),
-                            rewindParams.Target.RewindAnimation(cts.Token));
-                        break;
-                    case TransitionTarget.Target:
-                        await WhenAll.Await(cts.Token, rewindParams.Target.RewindAnimation(cts.Token));
-                        break;
-                    case TransitionTarget.Source:
-                        await WhenAll.Await(cts.Token, rewindParams.Source.RewindAnimation(cts.Token));
-                        break;
-                }
+                case TransitionTarget.Both:
+                    await WhenAll.Await(token, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                    break;
+                case TransitionTarget.Target:
+                    await WhenAll.Await(token, @params.Target.SkipAnimation());
+                    break;
+                case TransitionTarget.Source:
+                    await WhenAll.Await(token, @params.Source.SkipAnimation());
+                    break;
             }
+            
+            //TODO: This needs to somehow wait for when the active entry is assigned and then skip it.
+        }
+        
+        public async Awaitable RewindActive(CancellationToken cancellationToken = default)
+        {
+            if (_active == null)
+                return;
+            
+            Params rewindParams = _active.Params.CreateInverted();
+            CancelAllPending();
+            _active.Cts.Cancel();
+            
+            CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _active = new Entry(rewindParams, linkedCts);
+
+            CancellationToken token = linkedCts.Token;
+            switch (rewindParams.Transition.Target)
+            {
+                case TransitionTarget.Both:
+                    await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token), 
+                        rewindParams.Target.RewindAnimation(token));
+                    break;
+                case TransitionTarget.Target:
+                    await WhenAll.Await(token, rewindParams.Target.RewindAnimation(token));
+                    break;
+                case TransitionTarget.Source:
+                    await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token));
+                    break;
+            }
+
+            _active = null;
+            PromoteNextIfAny();
         }
 
         private async Awaitable ExecuteTransition(Params transitionParams, CancellationToken cancellationToken)
         {
-            if (transitionParams.VisibilityTransition.SortPriority == TransitionSortPriority.Auto)
+            if (transitionParams.Transition.SortPriority == TransitionSortPriority.Auto)
             {
-                switch (transitionParams.VisibilityTransition.Target)
+                switch (transitionParams.Transition.Target)
                 {
                     default:
                     case TransitionTarget.Both:
@@ -225,7 +291,7 @@ namespace UIFramework.Transitioning
             }
             else
             {
-                switch (transitionParams.VisibilityTransition.SortPriority)
+                switch (transitionParams.Transition.SortPriority)
                 {
                     case TransitionSortPriority.Source:
                         transitionParams.Source.SortAbove(transitionParams.Target);
@@ -236,13 +302,13 @@ namespace UIFramework.Transitioning
                 }
             }
 
-            if (transitionParams.VisibilityTransition.Target == TransitionTarget.None)
+            if (transitionParams.Transition.Target == TransitionTarget.None)
             {
                 ExecuteNone(in transitionParams);
             }
             else
             {
-                switch (transitionParams.VisibilityTransition.Target)
+                switch (transitionParams.Transition.Target)
                 {
                     case TransitionTarget.Both:
                         await ExecuteOnBoth(transitionParams, cancellationToken);
@@ -290,6 +356,65 @@ namespace UIFramework.Transitioning
             await WhenAll.Await(cancellationToken, sourceAwaitable, targetAwaitable);
         }
 
+        private bool IsActive(Entry entry)
+        {
+            return ReferenceEquals(_active, entry);   
+        }
+
+        private bool IsPending(Entry entry)
+        {
+            return _pending.Contains(entry);
+        }
+
+        private void RemovePending(Entry entry)
+        {
+            int index = _pending.IndexOf(entry);
+            if (index >= 0)
+                _pending.RemoveAt(index);
+        }
+
+        private void CancelAllPending()
+        {
+            foreach (Entry t in _pending)
+                t.Cts.Cancel();
+            _pending.Clear();
+        }
+
+        private void CancelPendingAfter(Entry entry)
+        {
+            int index = _pending.IndexOf(entry);
+            if (index < 0)
+                return;
+
+            for (int i = _pending.Count - 1; i > index; i--)
+            {
+                Entry pendingEntry = _pending[i];
+                _pending.RemoveAt(i);
+                pendingEntry.Cts.Cancel();
+            }
+        }
+        
+        private void PromoteNextIfAny()
+        {
+            if (_pending.Count == 0)
+                return;
+
+            Entry next = _pending[0];
+            _pending.RemoveAt(0);
+            _active = next;
+        }
+        
+        private IWidget GetExpectedSource()
+        {
+            if (_pending.Count > 0)
+                return _pending[^1].Params.Target;
+
+            if (_active != null)
+                return _active.Params.Target;
+
+            return null;
+        }
+        
         public void Terminate()
         {
             _ = SkipAll();

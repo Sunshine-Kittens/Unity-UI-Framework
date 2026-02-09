@@ -10,7 +10,6 @@ using UIFramework.Navigation;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
-using UIFramework.WidgetTransition;
 
 using UnityEngine;
 using UnityEngine.Extension;

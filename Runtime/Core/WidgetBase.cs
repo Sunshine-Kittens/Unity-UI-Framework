@@ -284,6 +284,7 @@ namespace UIFramework.Core
             _animationCts = cts;
             _animationHandle = handle;
 
+            // Check if this should happen before the play animation...
             Visibility = visibility;
             if (Visibility == WidgetVisibility.Visible)
             {

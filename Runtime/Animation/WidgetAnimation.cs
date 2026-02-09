@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 using UnityEngine.Extension;
 
-namespace UIFramework
+namespace UIFramework.Animation
 {
     public abstract class WidgetAnimation : IAnimation
     {
