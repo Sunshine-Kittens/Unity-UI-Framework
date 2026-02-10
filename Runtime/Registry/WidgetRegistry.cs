@@ -6,12 +6,13 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Registry
 {
-    //TODO: Add clear method
     public interface IWidgetRegistry<TWidget> where TWidget : class, IWidget
     {
         public void Register(TWidget widget);
         public void Unregister(TWidget widget);
 
+        public void Clear();
+        
         public TWidget Get<TWidgetType>() where TWidgetType : class, TWidget;
         public TWidget Get(Type widgetType);
 
@@ -28,8 +29,10 @@ namespace UIFramework.Registry
     {
         public IReadOnlyList<TWidget> Widgets => _widgets;
 
-        public event Action<TWidget> WidgetRegistered;
-        public event Action<TWidget> WidgetUnregistered;
+        public event Action<TWidget, int> WidgetRegistered;
+        public event Action<TWidget, int> WidgetUnregistered;
+        
+        public bool IsInitialized => _isInitialized;
         
         private bool _isInitialized;
         private readonly List<TWidget> _widgets;
@@ -90,7 +93,7 @@ namespace UIFramework.Registry
                 _onInitialize?.Invoke(widget);
             }
             _widgets.Add(widget);
-            WidgetRegistered?.Invoke(widget);
+            WidgetRegistered?.Invoke(widget, _widgets.Count - 1);
         }
 
         public void Unregister(TWidget widget)
@@ -98,16 +101,25 @@ namespace UIFramework.Registry
             if (widget == null) throw new ArgumentNullException(nameof(widget));
 
             Type widgetType = widget.GetType();
-            if (!_widgetMap.Remove(widgetType, out TWidget foundWidget))
+            if (!_widgetMap.Remove(widgetType, out TWidget foundWidget) || foundWidget != widget)
             {
-                throw new InvalidOperationException($"Widget of type {widgetType.Name} is not registered");
+                throw new InvalidOperationException($"Widget instance of type {widgetType.Name} is not registered");
             }
             if (_isInitialized && widget.State == WidgetState.Initialized)
             {
                 widget.Terminate();
             }
+            int index = _widgets.IndexOf(widget);
             _widgets.Remove(widget);
-            WidgetUnregistered?.Invoke(widget);
+            WidgetUnregistered?.Invoke(widget, index);
+        }
+
+        public void Clear()
+        {
+            for (int i = _widgets.Count - 1; i >= 0; i--)
+            {
+                Unregister(_widgets[i]);
+            }
         }
         
         public TWidget Get<TWidgetType>() where TWidgetType : class, TWidget

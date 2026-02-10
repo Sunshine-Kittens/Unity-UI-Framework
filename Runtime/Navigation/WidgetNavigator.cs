@@ -45,6 +45,7 @@ namespace UIFramework.Navigation
         {
             _registry = widgetRegistry ?? throw new ArgumentNullException(nameof(widgetRegistry));
             _history = history;
+            _registry.WidgetUnregistered += OnWidgetUnregistered;
         }
 
         public NavigationResult<TWidget> Navigate(TWidget target, bool addToHistory = true)
@@ -162,6 +163,14 @@ namespace UIFramework.Navigation
         {
             OnNavigationUpdate?.Invoke(navigationNavigationResult);
             return navigationNavigationResult;
+        }
+        
+        private void OnWidgetUnregistered(TWidget widget, int index)
+        {
+            if (widget == Active)
+            {
+                InvokeNavigationUpdate(new NavigationResult<TWidget>(true, Active, null, IsLocked.Value, _history.Count, null));
+            }
         }
     }
 }

@@ -16,13 +16,13 @@ namespace UIFramework.Navigation
     public class WidgetActivator<TWidget> : IActivatorVersion where TWidget : class, IWidget
     {
         public int Version { get; private set; }
-        
-        public TWidget Active => ActiveType != null ? _registry.Get(ActiveType) : null;
+
+        public TWidget Active { get; private set; }
         public Type ActiveType { get; private set; } = null;
 
         public event Action<ActivateResult<TWidget>> OnActivateUpdate;
 
-        private int _cachedActiveIndex = 0;
+        private int _cachedActiveIndex = -1;
         private readonly WidgetRegistry<TWidget> _registry;
 
         private WidgetActivator() { }
@@ -30,7 +30,6 @@ namespace UIFramework.Navigation
         public WidgetActivator(WidgetRegistry<TWidget> widgetRegistry)
         {
             _registry = widgetRegistry ?? throw new ArgumentNullException(nameof(widgetRegistry));
-            _registry.WidgetRegistered += OnWidgetRegistered;
             _registry.WidgetUnregistered += OnWidgetUnregistered;
         }
 
@@ -57,6 +56,7 @@ namespace UIFramework.Navigation
         {
             TWidget previous = Active;
             ActiveType = type;
+            Active = target;
             _cachedActiveIndex = index;
             Version++;
             return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, target, previous, index));
@@ -108,18 +108,33 @@ namespace UIFramework.Navigation
             return _cachedActiveIndex;
         }
         
-        private void OnWidgetRegistered(TWidget widget)
+        private bool HasActiveIndexChanged(out int activeIndex)
         {
-            UpdateActiveIndex();
+            if (_cachedActiveIndex != -1)
+            {
+                if (_registry.TryGet(ActiveType, out TWidget widget, out activeIndex) && widget == Active)
+                {
+                    return activeIndex != _cachedActiveIndex;
+                }
+                return true;
+            }
+            activeIndex = -1;
+            return false;
         }
 
-        private void OnWidgetUnregistered(TWidget widget)
+        private void OnWidgetUnregistered(TWidget widget, int index)
         {
-            if (widget.GetType() == ActiveType)
+            if (HasActiveIndexChanged(out int activeIndex))
             {
-                //TODO: Do something...
+                TWidget previous = Active;
+                if (activeIndex == -1)
+                {
+                    Active = null;
+                    ActiveType = null;   
+                }
+                UpdateActiveIndex();
+                InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, Active, previous, activeIndex));
             }
-            UpdateActiveIndex();
         }
     }
 }

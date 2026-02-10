@@ -5,7 +5,6 @@ using UIFramework.Animation;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Transitioning;
-using UIFramework.WidgetTransition;
 
 using UnityEngine;
 using UnityEngine.Extension;
