@@ -107,6 +107,7 @@ namespace UIFramework.Transitioning
         {
             public readonly Params Params;
             public readonly CancellationTokenSource Cts;
+            public bool Skip { get; set; }
 
             public Entry(Params @params, CancellationTokenSource cts)
             {
@@ -121,6 +122,8 @@ namespace UIFramework.Transitioning
 
         private Entry _active = null;
         private readonly List<Entry> _pending = new();
+
+        private bool _skipAll = false;
         
         private readonly TimeMode _timeMode = TimeMode.Scaled;
 
@@ -147,6 +150,8 @@ namespace UIFramework.Transitioning
             Params @params = new Params(transition, sourceWidget, targetWidget, _timeMode);
             CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             Entry entry = new Entry(@params, linkedCts);
+            if(_skipAll)
+                entry.Skip = true;
             _pending.Add(entry);
             
             CancellationToken token = linkedCts.Token;
@@ -167,7 +172,15 @@ namespace UIFramework.Transitioning
                     }
                     await Awaitable.NextFrameAsync(token);
                 }
-                await ExecuteTransition(@params, token);
+
+                if (entry.Skip)
+                {
+                    ExecuteInstant(in @params); 
+                }
+                else
+                {
+                    await ExecuteTransition(@params, token);   
+                }
             }
             catch (OperationCanceledException)
             {
@@ -196,48 +209,56 @@ namespace UIFramework.Transitioning
             }
         }
         
-        public async Awaitable SkipActive()
+        public async Awaitable SkipActive(CancellationToken cancellationToken = default)
         {
             if (_active == null)
                 return;
-
+            
+            _active.Skip = true;
             Params @params = _active.Params;
-            CancellationToken token = CancellationToken.None;
             switch (@params.Transition.Target)
             {
                 case TransitionTarget.Both:
-                    await WhenAll.Await(token, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
                     break;
                 case TransitionTarget.Target:
-                    await WhenAll.Await(token, @params.Target.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Target.SkipAnimation());
                     break;
                 case TransitionTarget.Source:
-                    await WhenAll.Await(token, @params.Source.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation());
                     break;
             }
         }
 
-        public async Awaitable SkipAll()
+        public async Awaitable SkipAll(CancellationToken cancellationToken = default)
         {
             if (_active == null)
                 return;
-
+            
+            _skipAll = true;
+            _active.Skip = true;
+            foreach (Entry pending in _pending)
+                pending.Skip = true;
+            
             Params @params = _active.Params;
-            CancellationToken token = CancellationToken.None;
             switch (@params.Transition.Target)
             {
                 case TransitionTarget.Both:
-                    await WhenAll.Await(token, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
                     break;
                 case TransitionTarget.Target:
-                    await WhenAll.Await(token, @params.Target.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Target.SkipAnimation());
                     break;
                 case TransitionTarget.Source:
-                    await WhenAll.Await(token, @params.Source.SkipAnimation());
+                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation());
                     break;
             }
-            
-            //TODO: This needs to somehow wait for when the active entry is assigned and then skip it.
+
+            while (_active != null || _pending.Count > 0)
+            {
+                await Awaitable.NextFrameAsync(cancellationToken);
+            }
+            _skipAll = false;
         }
         
         public async Awaitable RewindActive(CancellationToken cancellationToken = default)
@@ -304,7 +325,7 @@ namespace UIFramework.Transitioning
 
             if (transitionParams.Transition.Target == TransitionTarget.None)
             {
-                ExecuteNone(in transitionParams);
+                ExecuteInstant(in transitionParams);
             }
             else
             {
@@ -323,7 +344,7 @@ namespace UIFramework.Transitioning
             }
         }
 
-        private void ExecuteNone(in Params transitionParams)
+        private void ExecuteInstant(in Params transitionParams)
         {
             transitionParams.Source.SetVisibility(WidgetVisibility.Hidden);
             transitionParams.Target.SetVisibility(WidgetVisibility.Visible);
