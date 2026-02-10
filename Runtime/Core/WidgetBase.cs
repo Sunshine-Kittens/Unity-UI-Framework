@@ -125,6 +125,9 @@ namespace UIFramework.Core
         public IScalarFlag IsInteractable => IsInteractableInternal;
         protected readonly ScalarFlag IsInteractableInternal = new(true);
 
+        public event WidgetAction Initialized;
+        public event WidgetAction Terminated;
+        
         public event WidgetAction Showing;
         public event WidgetAction Shown;
         public event WidgetAction Hiding;
@@ -148,6 +151,8 @@ namespace UIFramework.Core
             {
                 GetChildAt(i).Initialize();
             }
+            OnInitialize();
+            Initialized?.Invoke(this);
         }
 
         public virtual void Terminate()
@@ -171,6 +176,8 @@ namespace UIFramework.Core
             IsInteractableInternal.Reset(true);
             IsInteractableInternal.OnUpdate -= OnIsInteractableUpdated;
             State = WidgetState.Terminated;
+            OnTerminate();
+            Terminated?.Invoke(this);
         }
 
         IReadOnlyWidget IReadOnlyWidget.GetChildAt(int index) => GetChildAt(index);

@@ -74,10 +74,9 @@ namespace UIFramework.UGUI
             _rootUnderCanvas = rootUnderCanvas;
             _activeAnchoredPosition = RectTransform.anchoredPosition;
             base.Initialize();
-            OnInitialize();
         }
 
-        public override void Terminate()
+        public sealed override void Terminate()
         {
             if (State != WidgetState.Initialized)
             {
@@ -87,7 +86,6 @@ namespace UIFramework.UGUI
             _rootUnderCanvas = null;
             _activeAnchoredPosition = Vector3.zero;
             base.Terminate();
-            OnTerminate();
         }
 
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)

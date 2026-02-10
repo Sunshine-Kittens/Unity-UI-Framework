@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Threading;
 
 using UIFramework.Collectors;
+using UIFramework.Controllers.Interfaces;
 using UIFramework.Coordinators;
 using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
-using UIFramework.Navigation.Interfaces;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
 
@@ -16,24 +16,21 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public enum ControllerState
+    public class Controller<TWidget> : IController<TWidget> where TWidget : class, IWidget
     {
-        Uninitialized,
-        Initialized,
-        Terminated
-    }
-    
-    public abstract class Controller<TWidget> : MonoBehaviour, 
-        IUpdatable,
-        INavigationRequestFactory<TWidget>, 
-        IReturnNavigator<TWidget>,
-        IExitNavigator<TWidget> 
-        where TWidget : class, IWidget
-    {
-        public bool Active => gameObject.activeInHierarchy;
+        private enum VisibilityState
+        {
+            Entering = 1,
+            Entered = 2,
+            Exiting = 3,
+            Exited = 4
+        }
+
+        public bool Active => IsInitialized && IsVisible;
+
         public bool IsInitialized => State == ControllerState.Initialized;
         public ControllerState State { get; private set; } = ControllerState.Uninitialized;
-        public bool IsVisible => Opacity > 0.0F;
+        public bool IsVisible => _visibilityState > 0 && _visibilityState < VisibilityState.Exited && Opacity > 0.0F;
         
         public float Opacity => _opacity;
         private float _opacity = 1.0F;
@@ -68,50 +65,69 @@ namespace UIFramework.Controllers
             get => _timeMode;
             protected set => _timeMode = value;
         }
-        
-        [SerializeField] private TimeMode _timeMode = TimeMode.Scaled;
+        private TimeMode _timeMode;
 
         public IHistoryGroups HistoryGroups => _history;
         
-        protected abstract IEnumerable<WidgetCollector<TWidget>> Collectors { get; }
+        protected IEnumerable<WidgetCollector<TWidget>> Collectors { get; }
 
-        public event Action Shown;
-        public event Action Hidden;
+        public event Action Entering;
+        public event Action Entered;
+        public event Action Exiting;
+        public event Action Exited;
+        
+        public event WidgetAction WidgetShowing;
         public event WidgetAction WidgetShown;
+        public event WidgetAction WidgetHiding;
         public event WidgetAction WidgetHidden;
 
-        private WidgetRegistry<TWidget> _registry;
-        private History _history;
-        private WidgetNavigator<TWidget> _widgetNavigator;
-        private TransitionManager _transitionManager;
+        private readonly WidgetRegistry<TWidget> _registry;
+        private readonly History _history;
+        private readonly WidgetNavigator<TWidget> _widgetNavigator;
+        private readonly TransitionManager _transitionManager;
         
-        private NavigationCoordinator<TWidget> _navigationCoordinator;
-        private ReturnCoordinator<TWidget> _returnCoordinator;
-        private ExitCoordinator<TWidget> _exitCoordinator;
+        private readonly NavigationCoordinator<TWidget> _navigationCoordinator;
+        private readonly ReturnCoordinator<TWidget> _returnCoordinator;
+        private readonly ExitCoordinator<TWidget> _exitCoordinator;
         
-        // Unity Messages
-#if UNITY_EDITOR
-        protected virtual void OnValidate()
-        {
+        private VisibilityState _visibilityState = 0;
 
-        }
-#endif
-
-        protected virtual void Awake()
+        protected Controller(IEnumerable<WidgetCollector<TWidget>> collectors, TimeMode timeMode)
         {
-            UpdateManager.AddUpdatable(this);
-        }
-
-        protected virtual void Start()
-        {
+            Collectors = collectors ?? throw new ArgumentNullException(nameof(collectors));
+            _timeMode = timeMode;
             
+            void OnWidgetInitialize(IWidget widget)
+            {
+                widget.Showing += OnWidgetShowing;
+                widget.Shown += OnWidgetShown;
+                widget.Hiding += OnWidgetHiding;
+                widget.Hidden += OnWidgetHidden;
+                widget.SetVisibility(WidgetVisibility.Hidden);
+                widget.SetOpacity(_opacity);
+                widget.IsEnabled.Value = _isEnabled.Value;
+                widget.IsInteractable.Value = _isInteractable.Value;
+            }
+            
+            void OnWidgetTerminate(IWidget widget)
+            {
+                widget.Showing -= OnWidgetShowing;
+                widget.Shown -= OnWidgetShown;
+                widget.Hiding -= OnWidgetHiding;
+                widget.Hidden -= OnWidgetHidden;
+            }
+            
+            _registry = new WidgetRegistry<TWidget>(OnWidgetInitialize, OnWidgetTerminate);
+            _history = new History(_registry.Widgets.Count, _registry.Widgets.Count);
+            
+            _widgetNavigator = new WidgetNavigator<TWidget>(_registry, _history);
+            
+            _transitionManager = new TransitionManager(_timeMode);
+            _navigationCoordinator = new NavigationCoordinator<TWidget>(_timeMode, _registry, _widgetNavigator, _history, _transitionManager);
+            _returnCoordinator = new ReturnCoordinator<TWidget>(_widgetNavigator, _history, _transitionManager);
+            _exitCoordinator = new ExitCoordinator<TWidget>(_timeMode, _widgetNavigator, _transitionManager);
         }
-
-        protected virtual void OnEnable()
-        {
-
-        }        
-
+        
         public void ManagedUpdate()
         {
             if (IsVisible)
@@ -138,72 +154,24 @@ namespace UIFramework.Controllers
                         }
                     }   
                 }
-                OnUpdate(deltaTime);
             }
         }
-
-        protected virtual void OnDisable()
-        {
-            // Close All and tear down
-        }
-
-        protected virtual void OnDestroy()
-        {
-            if(_registry != null)
-            {
-                foreach (TWidget widget in _registry.Widgets)
-                {
-                    widget.Shown -= OnWidgetShown;
-                    widget.Hidden -= OnWidgetHidden;
-                }
-            }            
-            UpdateManager.RemoveUpdatable(this);
-        }
-
-        protected virtual void OnApplicationFocus(bool hasFocus)
-        {
-
-        }
-
-        // Controller
+        
         public void Initialize()
         {
             if (State == ControllerState.Initialized)
             {
                 throw new InvalidOperationException("Controller already initialized.");
             }
-
-            if (Collectors == null)
-            {
-                throw new InvalidOperationException("screenCollectors are null.");
-            }
             
-            void OnInit(IWidget widget)
-            {
-                widget.Shown += OnWidgetShown;
-                widget.Hidden += OnWidgetHidden;
-                widget.SetVisibility(WidgetVisibility.Hidden);
-                widget.SetOpacity(_opacity);
-                widget.IsEnabled.Value = _isEnabled.Value;
-                widget.IsInteractable.Value = _isInteractable.Value;
-            }
-            
-            _registry = new WidgetRegistry<TWidget>(OnInit);
+            _registry.Initialize();
             _registry.Collect(Collectors);
-
-            _history = new History(_registry.Widgets.Count, _registry.Widgets.Count);
-            
-            _widgetNavigator = new WidgetNavigator<TWidget>(_registry, _history);
             _widgetNavigator.OnNavigationUpdate += OnNavigationUpdate;
-            
-            _transitionManager = new TransitionManager(TimeMode);
-            _navigationCoordinator = new NavigationCoordinator<TWidget>(TimeMode, _registry, _widgetNavigator, _history, _transitionManager);
-            _returnCoordinator = new ReturnCoordinator<TWidget>(_widgetNavigator, _history, _transitionManager);
-            _exitCoordinator = new ExitCoordinator<TWidget>(TimeMode, _widgetNavigator, _transitionManager);
             
             _isEnabled.OnUpdate += OnIsEnabledUpdated;
             _isInteractable.OnUpdate += OnIsInteractableUpdated;
             
+            UpdateManager.AddUpdatable(this);
             OnInitialize();
             State = ControllerState.Initialized; 
         }
@@ -218,36 +186,27 @@ namespace UIFramework.Controllers
             _exitCoordinator.Exit(new ExitRequest());
             
             _history.Clear();
-            if(_registry != null)
-            {
-                foreach (TWidget widget in _registry.Widgets)
-                {
-                    if (widget.State == WidgetState.Initialized)
-                    {
-                        widget.Terminate();
-                    }
-                }
-            } 
-            _registry = null;
-            _navigationCoordinator = null;
+            _registry.Terminate(); 
             _widgetNavigator.OnNavigationUpdate -= OnNavigationUpdate;
-            _widgetNavigator = null;
-            _transitionManager = null;
+            _transitionManager.Terminate();
             _isEnabled.OnUpdate -= OnIsEnabledUpdated;
             _isEnabled.Reset(true);
             _isInteractable.OnUpdate += OnIsInteractableUpdated;
             _isInteractable.Reset(true);
             
+            UpdateManager.RemoveUpdatable(this);
             OnTerminate();
             State = ControllerState.Terminated;
         }
 
         protected virtual void OnInitialize() { }
-        protected virtual void OnUpdate(float deltaTime) { }
         protected virtual void OnTerminate() { }
 
-        protected virtual void OnShow() { }
-        protected virtual void OnHide() { }
+        protected virtual void OnEnter() { }
+        protected virtual void OnEntered() { }
+        
+        protected virtual void OnExit() { }
+        protected virtual void OnExited() { }
 
         public NavigationRequest<TWidget> CreateNavigationRequest(TWidget widget)
         {
@@ -281,18 +240,54 @@ namespace UIFramework.Controllers
             }
         }
 
-        protected virtual void OnNavigationUpdate(NavigationResult<TWidget> navigationResult)
+        protected virtual void OnNavigationUpdate(NavigationResult<TWidget> result)
         {
-            
+            if (result.Success)
+            {
+                if (result.Previous == null && result.Active != null)
+                {
+                    _visibilityState = VisibilityState.Entering;
+                    Entering?.Invoke();
+                    OnEnter();
+                }
+                else if (result.Previous != null && result.Active == null)
+                {
+                    _visibilityState = VisibilityState.Exiting;
+                    Exiting?.Invoke();
+                    OnExit();
+                }
+            }
         }
 
+        private void OnWidgetShowing(IWidget widget)
+        {
+            WidgetShowing?.Invoke(widget);
+        }
+        
         private void OnWidgetShown(IWidget widget)
         {
+            if (_visibilityState == VisibilityState.Entering)
+            {
+                _visibilityState = VisibilityState.Entered;
+                Entered?.Invoke();
+                OnEnter();
+            }
             WidgetShown?.Invoke(widget);
         }
 
+        private void OnWidgetHiding(IWidget widget)
+        {
+            WidgetHiding?.Invoke(widget);
+        }
+        
         private void OnWidgetHidden(IWidget widget)
         {
+            if (_visibilityState == VisibilityState.Exiting)
+            {
+                _visibilityState = VisibilityState.Exited;
+                Exited?.Invoke();
+                OnExit();
+            }
             WidgetHidden?.Invoke(widget);
         }
         

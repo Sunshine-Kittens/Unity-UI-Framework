@@ -9,10 +9,10 @@ namespace UIFramework.Core.Interfaces
 
     public interface IScreen : IReadOnlyScreen, IWindow 
     {
-        public ScreenController Controller { get; }
+        public Controller<IScreen> Controller { get; }
 
-        public TControllerType GetController<TControllerType>() where TControllerType : ScreenController;
-        public void SetController(ScreenController controller);
+        public TController GetController<TController>() where TController : Controller<IScreen>;
+        public void SetController(Controller<IScreen> controller);
         public bool SetBackButtonActive(bool active);
     }
 }

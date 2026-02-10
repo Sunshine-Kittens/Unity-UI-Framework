@@ -1,5 +1,6 @@
 ﻿using System;
 
+using UIFramework.Controllers;
 using UIFramework.Core.Interfaces;
 
 using UnityEngine.UIElements;
@@ -8,18 +9,18 @@ namespace UIFramework.UIToolkit
 {
     public class Screen : Window, IScreen
     {
-        public Controller Controller { get; private set; } = null;
+        public ScreenController Controller { get; private set; } = null;
 
         protected virtual string BackButtonName => null;
         private Button _backButton = null;
 
         // IScreen
-        public TControllerType GetController<TControllerType>() where TControllerType : Controller
+        public TControllerType GetController<TControllerType>() where TControllerType : ScreenController
         {
             return Controller as TControllerType;
         }
 
-        public void SetController(Controller controller)
+        public void SetController(ScreenController controller)
         {
             if (Controller != null)
             {
@@ -59,7 +60,7 @@ namespace UIFramework.UIToolkit
         {
             if (Visibility == WidgetVisibility.Visible)
             {
-                Controller.HideActiveScreen();
+                Controller.Return();
             }
         }
     }

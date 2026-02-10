@@ -38,10 +38,12 @@ namespace UIFramework.Registry
         private readonly List<TWidget> _widgets;
         private readonly Dictionary<Type, TWidget> _widgetMap;
         private readonly Action<TWidget> _onInitialize;
+        private readonly Action<TWidget> _onTerminate;
 
-        public WidgetRegistry(Action<TWidget> onInitialize)
+        public WidgetRegistry(Action<TWidget> onInitialize, Action<TWidget> onTerminate)
         {
             _onInitialize = onInitialize;
+            _onTerminate = onTerminate;
         }
         
         public void Collect(IEnumerable<IWidgetCollector<TWidget>> collectors)
@@ -107,6 +109,7 @@ namespace UIFramework.Registry
             }
             if (_isInitialized && widget.State == WidgetState.Initialized)
             {
+                _onTerminate?.Invoke(widget);
                 widget.Terminate();
             }
             int index = _widgets.IndexOf(widget);
@@ -225,14 +228,16 @@ namespace UIFramework.Registry
 
         public void Terminate()
         {
+            if (!_isInitialized) throw new InvalidOperationException("Registry is not initialized");
+            
             foreach (TWidget widget in _widgets)
             {
                 if (widget.State == WidgetState.Initialized)
                 {
+                    _onTerminate?.Invoke(widget);
                     widget.Terminate();
                 }
             }
-
             _widgetMap.Clear();
             _widgets.Clear();
             _isInitialized = false;

@@ -71,17 +71,11 @@ namespace UIFramework.UIToolkit
             _visualElement = visualElement ?? throw new InvalidOperationException($"Failed to find visual element with name: {_visualElementName}");
 
             base.Initialize();
-            OnInitialize();
         }
 
         public sealed override void Terminate()
         {
-            if (State != WidgetState.Initialized)
-            {
-                throw new InvalidOperationException("Widget cannot be terminated.");
-            }
-            base.Terminate();
-            OnTerminate();
+            base.Terminate(); 
         }
         
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)

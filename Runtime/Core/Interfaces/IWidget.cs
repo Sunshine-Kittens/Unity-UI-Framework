@@ -62,6 +62,9 @@ namespace UIFramework.Core.Interfaces
     {
         public new IScalarFlag IsEnabled { get; }
         public new IScalarFlag IsInteractable { get; }
+
+        public event WidgetAction Initialized;
+        public event WidgetAction Terminated;
         
         public event WidgetAction Showing;
         public event WidgetAction Shown;

@@ -11,10 +11,7 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public sealed class TabController<TWidget> : 
-        IActivateRequestFactory<TWidget>,
-        IActivateIndexRequestFactory<TWidget>
-        where TWidget : class, IWidget
+    public sealed class TabController<TWidget> : IActivateRequestFactory<TWidget>, IActivateIndexRequestFactory<TWidget> where TWidget : class, IWidget
     {
         public IWidgetRegistry<TWidget> Registry => _registry;
         
@@ -39,14 +36,20 @@ namespace UIFramework.Controllers
 
         public TabController(TimeMode timeMode, TWidget[] widgets, int activeTabIndex = 0)
         {
-            void OnInit(IWidget widget)
+            void OnInitializeWidget(IWidget widget)
             {
                 widget.Shown += OnWidgetShown;
                 widget.Hidden += OnWidgetHidden;
                 widget.SetVisibility(WidgetVisibility.Hidden);
             }
             
-            _registry = new WidgetRegistry<TWidget>(OnInit);
+            void OnTerminateWidget(IWidget widget)
+            {
+                widget.Shown -= OnWidgetShown;
+                widget.Hidden -= OnWidgetHidden;
+            }
+            
+            _registry = new WidgetRegistry<TWidget>(OnInitializeWidget, OnTerminateWidget);
             foreach (TWidget widget in widgets)
             {
                 _registry.Register(widget);
