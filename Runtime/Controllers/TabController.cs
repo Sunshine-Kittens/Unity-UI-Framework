@@ -11,7 +11,6 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    //TODO: Needs completing with registry responses handled.
     public sealed class TabController<TWidget> : 
         IActivateRequestFactory<TWidget>,
         IActivateIndexRequestFactory<TWidget>
