@@ -5,30 +5,30 @@ using UIFramework.Registry;
 
 namespace UIFramework.Coordinators
 {
-    public class ActivateCoordinator<TWidget> : IActivateRequestFactory<TWidget>, IActivateRequestProcessor<TWidget> where TWidget : class, IWidget
+    public class ActivateCoordinator<TWindow> : IActivateRequestFactory<TWindow>, IActivateRequestProcessor<TWindow> where TWindow : class, IWindow
     {
-        private readonly IActivateRequestProcessor<TWidget> _processor;
-        private readonly WidgetRegistry<TWidget> _registry;
-        private readonly WidgetActivator<TWidget> _widgetActivator;
+        private readonly IActivateRequestProcessor<TWindow> _processor;
+        private readonly WidgetRegistry<TWindow> _registry;
+        private readonly WindowActivator<TWindow> _windowActivator;
         
-        public ActivateCoordinator(IActivateRequestProcessor<TWidget> processor, WidgetRegistry<TWidget> registry, WidgetActivator<TWidget> widgetActivator)
+        public ActivateCoordinator(IActivateRequestProcessor<TWindow> processor, WidgetRegistry<TWindow> registry, WindowActivator<TWindow> windowActivator)
         {
             _processor = processor;
             _registry = registry;
-            _widgetActivator = widgetActivator;
+            _windowActivator = windowActivator;
         }
         
-        public ActivateRequest<TWidget> CreateActivateRequest(TWidget widget)
+        public ActivateRequest<TWindow> CreateActivateRequest(TWindow window)
         {
-            return new ActivateRequest<TWidget>(_widgetActivator, this, _widgetActivator.Active, widget);
+            return new ActivateRequest<TWindow>(_windowActivator, this, _windowActivator.Active, window);
         }
         
-        public ActivateRequest<TWidget> CreateActivateRequest<TTarget>() where TTarget : class, TWidget
+        public ActivateRequest<TWindow> CreateActivateRequest<TTarget>() where TTarget : class, TWindow
         {
-            return new ActivateRequest<TWidget>(_widgetActivator, this, _widgetActivator.Active, _registry.Get<TTarget>());
+            return new ActivateRequest<TWindow>(_windowActivator, this, _windowActivator.Active, _registry.Get<TTarget>());
         }
         
-        public ActivateResponse<TWidget> ProcessActivateRequest(in ActivateRequest<TWidget> request)
+        public ActivateResponse<TWindow> ProcessActivateRequest(in ActivateRequest<TWindow> request)
         {
             return _processor.ProcessActivateRequest(request);
         }

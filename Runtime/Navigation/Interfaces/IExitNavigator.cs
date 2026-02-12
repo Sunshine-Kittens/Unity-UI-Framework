@@ -2,8 +2,8 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation.Interfaces
 {
-    public interface IExitNavigator<TWidget> where TWidget : class, IWidget
+    public interface IExitNavigator<TWindow> where TWindow : class, IWindow
     {
-        public NavigationResponse<TWidget> Exit(in ExitRequest request);
+        public NavigationResponse<TWindow> Exit(in ExitRequest request);
     }
 }

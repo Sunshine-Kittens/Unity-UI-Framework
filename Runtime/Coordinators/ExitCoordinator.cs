@@ -8,39 +8,39 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Coordinators
 {
-    public class ExitCoordinator<TWidget> : IExitNavigator<TWidget> where TWidget : class, IWidget
+    public class ExitCoordinator<TWindow> : IExitNavigator<TWindow> where TWindow : class, IWindow
     {
         private readonly TimeMode _timeMode;
-        private readonly WidgetNavigator<TWidget> _widgetNavigator;
+        private readonly WindowNavigator<TWindow> _windowNavigator;
         private readonly TransitionManager _transitionManager;
         
-        public ExitCoordinator(TimeMode timeMode, WidgetNavigator<TWidget> widgetNavigator, TransitionManager transitionManager)
+        public ExitCoordinator(TimeMode timeMode, WindowNavigator<TWindow> windowNavigator, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _transitionManager = transitionManager;
-            _widgetNavigator = widgetNavigator;
+            _windowNavigator = windowNavigator;
         }
 
-        public NavigationResponse<TWidget> Exit(in ExitRequest request)
+        public NavigationResponse<TWindow> Exit(in ExitRequest request)
         {
-            NavigationResult<TWidget> result = _widgetNavigator.Clear();
+            NavigationResult<TWindow> result = _windowNavigator.Clear();
             Awaitable awaitable = null;
             if (result.Success)
             {
                 _transitionManager.Terminate();
-                IWidget widget = result.Previous;
-                AnimationPlayable playable = GetAnimationPlayable(in request, widget, _timeMode);
+                IWindow window = result.Previous;
+                AnimationPlayable playable = GetAnimationPlayable(in request, window, _timeMode);
                 if (playable.IsValid())
                 {
-                    awaitable = widget.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, request.CancellationToken);
+                    awaitable = window.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, request.CancellationToken);
                 }
                 else
                 {
-                    widget.SetVisibility(WidgetVisibility.Hidden);
+                    window.SetVisibility(WidgetVisibility.Hidden);
                 }
                  
             }
-            return new NavigationResponse<TWidget>(result, awaitable);
+            return new NavigationResponse<TWindow>(result, awaitable);
         }
         
         private bool IsRequestInstant(in ExitRequest request)
@@ -48,13 +48,13 @@ namespace UIFramework.Coordinators
             return (request.Length.HasValue && Mathf.Approximately(request.Length.Value, 0.0F)) || (!request.Length.HasValue && !request.Animation.IsValid);
         }
         
-        private AnimationPlayable GetAnimationPlayable(in ExitRequest request, IWidget widget, TimeMode timeMode)
+        private AnimationPlayable GetAnimationPlayable(in ExitRequest request, IWindow window, TimeMode timeMode)
         {
             if (IsRequestInstant(request)) return default;
             
             IAnimation animation = request.Animation.IsValid ?
-                request.Animation.Resolve(widget, WidgetVisibility.Hidden) : 
-                widget.GetDefaultAnimation(WidgetVisibility.Hidden);
+                request.Animation.Resolve(window, WidgetVisibility.Hidden) : 
+                window.GetDefaultAnimation(WidgetVisibility.Hidden);
 
             if (animation == null) return default;
             

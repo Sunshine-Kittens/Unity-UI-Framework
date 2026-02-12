@@ -8,24 +8,23 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers.Interfaces
 {
-    public enum ControllerState
+    public enum ScreenControllerState
     {
         Uninitialized,
         Initialized,
         Terminated
     }
     
-    public interface IController<TWidget> : IUpdatable, INavigationRequestFactory<TWidget>, IReturnNavigator<TWidget>, IExitNavigator<TWidget> 
-        where TWidget : class, IWidget
+    public interface IScreenController : IUpdatable, INavigationRequestFactory<IScreen>, IReturnNavigator<IScreen>, IExitNavigator<IScreen>
     {
         public bool IsInitialized { get; }
-        public ControllerState State { get; }
+        public ScreenControllerState State { get; }
         
         public bool IsVisible { get; }
         public float Opacity { get; }
 
-        public TWidget ActiveWidget { get; }
-        public TWidget PreviousWidget { get; }
+        public IScreen ActiveScreen { get; }
+        public IScreen PreviousScreen { get; }
         
         public IScalarFlag IsEnabled { get; }
         public IScalarFlag IsInteractable { get; }
@@ -39,10 +38,10 @@ namespace UIFramework.Controllers.Interfaces
         public event Action Exiting;
         public event Action Exited;
         
-        public event WidgetAction WidgetShowing;
-        public event WidgetAction WidgetShown;
-        public event WidgetAction WidgetHiding;
-        public event WidgetAction WidgetHidden;
+        public event ScreenAction ScreenShowing;
+        public event ScreenAction ScreenShown;
+        public event ScreenAction ScreenHiding;
+        public event ScreenAction ScreenHidden;
         
         public void Initialize();
         public void Terminate();

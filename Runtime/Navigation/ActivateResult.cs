@@ -2,14 +2,14 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation
 {
-    public readonly struct ActivateResult<TWidget> where TWidget : class, IWidget
+    public readonly struct ActivateResult<TWindow> where TWindow : class, IWidget
     {
         public readonly bool Success;
-        public readonly TWidget Active;
-        public readonly TWidget Previous;
+        public readonly TWindow Active;
+        public readonly TWindow Previous;
         public readonly int Index;
 
-        public ActivateResult(bool success, TWidget active, TWidget previous, int index)
+        public ActivateResult(bool success, TWindow active, TWindow previous, int index)
         {
             Success = success;
             Active = active;

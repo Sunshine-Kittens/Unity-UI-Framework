@@ -22,47 +22,47 @@ namespace UIFramework.Coordinators
         }
     }
     
-    public class NavigationCoordinator<TWidget> : INavigationRequestFactory<TWidget>, INavigationRequestProcessor<TWidget> where TWidget : class, IWidget
+    public class NavigationCoordinator<TWindow> : INavigationRequestFactory<TWindow>, INavigationRequestProcessor<TWindow> where TWindow : class, IWindow
     {
         private readonly TimeMode _timeMode;
-        private readonly WidgetRegistry<TWidget> _registry;
-        private readonly WidgetNavigator<TWidget> _widgetNavigator;
+        private readonly WidgetRegistry<TWindow> _registry;
+        private readonly WindowNavigator<TWindow> _windowNavigator;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
         
-        public NavigationCoordinator(TimeMode timeMode, WidgetRegistry<TWidget> registry, WidgetNavigator<TWidget> widgetNavigator,
+        public NavigationCoordinator(TimeMode timeMode, WidgetRegistry<TWindow> registry, WindowNavigator<TWindow> windowNavigator,
             History history, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _registry = registry;
-            _widgetNavigator = widgetNavigator;
+            _windowNavigator = windowNavigator;
             _history = history;
             _transitionManager = transitionManager;
         }
         
-        public NavigationRequest<TWidget> CreateNavigationRequest(TWidget widget)
+        public NavigationRequest<TWindow> CreateNavigationRequest(TWindow window)
         {
-            return new NavigationRequest<TWidget>(_widgetNavigator, this, _widgetNavigator.Active, widget);
+            return new NavigationRequest<TWindow>(_windowNavigator, this, _windowNavigator.Active, window);
         }
         
-        public NavigationRequest<TWidget> CreateNavigationRequest<TTarget>() where TTarget : class, TWidget
+        public NavigationRequest<TWindow> CreateNavigationRequest<TTarget>() where TTarget : class, TWindow
         {
-            return new NavigationRequest<TWidget>(_widgetNavigator, this, _widgetNavigator.Active, _registry.Get<TTarget>());
+            return new NavigationRequest<TWindow>(_windowNavigator, this, _windowNavigator.Active, _registry.Get<TTarget>());
         }
 
-        public NavigationResponse<TWidget> ProcessNavigationRequest(in NavigationRequest<TWidget> request)
+        public NavigationResponse<TWindow> ProcessNavigationRequest(in NavigationRequest<TWindow> request)
         {
             Awaitable awaitable = null;
-            NavigationResult<TWidget> result = _widgetNavigator.Navigate(request.Widget, request.AddToHistory);
+            NavigationResult<TWindow> result = _windowNavigator.Navigate(request.Window, request.AddToHistory);
             if (result.Success)
             {
                 awaitable = Navigate(request.Transition, result.Active, result.Previous, request.Data, 
                     result.HistoryEntry, request.CancellationToken);
             }
-            return new NavigationResponse<TWidget>(result, awaitable);
+            return new NavigationResponse<TWindow>(result, awaitable);
         }
         
-        private Awaitable Navigate(VisibilityTransitionParams transition, TWidget target, TWidget source, object data, IHistoryEntry historyEntry, 
+        private Awaitable Navigate(VisibilityTransitionParams transition, TWindow target, TWindow source, object data, IHistoryEntry historyEntry, 
             CancellationToken cancellationToken)
         {
             Awaitable awaitable = null;

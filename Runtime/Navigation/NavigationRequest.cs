@@ -11,14 +11,14 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Navigation
 {
-    public readonly ref struct NavigationRequest<TWidget> where TWidget : class, IWidget
+    public readonly ref struct NavigationRequest<TWindow> where TWindow : class, IWindow
     {
         private readonly INavigatorVersion _navigatorVersion;
-        private readonly INavigationRequestProcessor<TWidget> _processor;
-        private readonly TWidget _sourceWidget;
-        private readonly TWidget _targetWidget;
+        private readonly INavigationRequestProcessor<TWindow> _processor;
+        private readonly TWindow _sourceWindow;
+        private readonly TWindow _targetWindow;
 
-        public TWidget Widget => _targetWidget;
+        public TWindow Window => _targetWindow;
         public readonly bool AddToHistory;
         public readonly object Data;
         public readonly CancellationToken CancellationToken;
@@ -45,15 +45,15 @@ namespace UIFramework.Navigation
             CancellationToken = 1 << 6
         }
 
-        internal NavigationRequest(INavigatorVersion navigatorVersion, INavigationRequestProcessor<TWidget> processor, TWidget sourceWidget, 
-            TWidget targetWidget)
+        internal NavigationRequest(INavigatorVersion navigatorVersion, INavigationRequestProcessor<TWindow> processor, TWindow sourceWindow, 
+            TWindow targetWindow)
         {
             _navigatorVersion = navigatorVersion;
             _version = navigatorVersion.Version;
             _processor = processor;
             
-            _sourceWidget = sourceWidget;
-            _targetWidget = targetWidget;
+            _sourceWindow = sourceWindow;
+            _targetWindow = targetWindow;
             
             Data = null;
             _animationRef = WidgetAnimationRef.None;
@@ -65,16 +65,16 @@ namespace UIFramework.Navigation
             _flags = BuilderFlags.None;
         }
         
-        private NavigationRequest(INavigatorVersion navigatorVersion, int version, INavigationRequestProcessor<TWidget> processor, TWidget sourceWidget, 
-            TWidget targetWidget, object data, WidgetAnimationRef animation, float length, EasingMode easingMode, bool addToHistory, 
+        private NavigationRequest(INavigatorVersion navigatorVersion, int version, INavigationRequestProcessor<TWindow> processor, TWindow sourceWindow, 
+            TWindow targetWindow, object data, WidgetAnimationRef animation, float length, EasingMode easingMode, bool addToHistory, 
             VisibilityTransitionParams? transitionParams, CancellationToken cancellationToken, BuilderFlags flags)
         {
             _navigatorVersion = navigatorVersion;
             _version = version;
             _processor = processor;
             
-            _sourceWidget = sourceWidget;
-            _targetWidget = targetWidget;
+            _sourceWindow = sourceWindow;
+            _targetWindow = targetWindow;
             
             Data = data;
             _animationRef = animation;
@@ -91,14 +91,14 @@ namespace UIFramework.Navigation
             return _navigatorVersion.Version ==  _version;
         }
         
-        public NavigationRequest<TWidget> WithData(object data)
+        public NavigationRequest<TWindow> WithData(object data)
         {
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 data,
                 _animationRef,
                 _length,
@@ -110,16 +110,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationRequest<TWidget> WithAnimation(WidgetAnimationRef animation)
+        public NavigationRequest<TWindow> WithAnimation(WidgetAnimationRef animation)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit animation and transition");
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 animation,
                 _length,
@@ -131,16 +131,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationRequest<TWidget> WithLength(float length)
+        public NavigationRequest<TWindow> WithLength(float length)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit length and transition");
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 length,
@@ -152,16 +152,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationRequest<TWidget> WithEasingMode(EasingMode easingMode)
+        public NavigationRequest<TWindow> WithEasingMode(EasingMode easingMode)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit easing mode and transition");
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -173,14 +173,14 @@ namespace UIFramework.Navigation
             );
         }
 
-        public NavigationRequest<TWidget> WithAddToHistory(bool addToHistory)
+        public NavigationRequest<TWindow> WithAddToHistory(bool addToHistory)
         {
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -192,16 +192,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationRequest<TWidget> WithTransition(VisibilityTransitionParams transitionParams)
+        public NavigationRequest<TWindow> WithTransition(VisibilityTransitionParams transitionParams)
         {
             if(_flags.HasFlag(BuilderFlags.Animation)) 
                 throw new InvalidOperationException("Cannot define both an explicit transition and animation");
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -213,14 +213,14 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationRequest<TWidget> WithCancellation(CancellationToken cancellationToken)
+        public NavigationRequest<TWindow> WithCancellation(CancellationToken cancellationToken)
         {
-            return new NavigationRequest<TWidget>(
+            return new NavigationRequest<TWindow>(
                 _navigatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -232,7 +232,7 @@ namespace UIFramework.Navigation
             );
         }
         
-        public NavigationResponse<TWidget> Execute()
+        public NavigationResponse<TWindow> Execute()
         {
             if (!IsValid())
                 throw new InvalidOperationException("Unable to execute request, the request is no longer valid.");
@@ -253,10 +253,10 @@ namespace UIFramework.Navigation
             if (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.HasValue)
                 return _transitionParams.Value;
 
-            IAnimation exitAnimation = _sourceWidget.GetDefaultAnimation(WidgetVisibility.Hidden);
+            IAnimation exitAnimation = _sourceWindow.GetDefaultAnimation(WidgetVisibility.Hidden);
             IAnimation entryAnimation = _flags.HasFlag(BuilderFlags.Animation) ?
-                _animationRef.Resolve(_targetWidget, WidgetVisibility.Visible) : 
-                _targetWidget.GetDefaultAnimation(WidgetVisibility.Visible);
+                _animationRef.Resolve(_targetWindow, WidgetVisibility.Visible) : 
+                _targetWindow.GetDefaultAnimation(WidgetVisibility.Visible);
 
             if (exitAnimation == null && entryAnimation == null)
                 return Transitioning.Transition.None();

@@ -3,23 +3,13 @@
 using UIFramework.Controllers;
 using UIFramework.Core.Interfaces;
 
-using UnityEngine.UIElements;
-
 namespace UIFramework.UIToolkit
 {
     public class Screen : Window, IScreen
     {
         public ScreenController Controller { get; private set; } = null;
 
-        protected virtual string BackButtonName => null;
-        private Button _backButton = null;
-
         // IScreen
-        public TControllerType GetController<TControllerType>() where TControllerType : ScreenController
-        {
-            return Controller as TControllerType;
-        }
-
         public void SetController(ScreenController controller)
         {
             if (Controller != null)
@@ -28,40 +18,12 @@ namespace UIFramework.UIToolkit
             }
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
         }
-
-        protected override void OnInitialize()
+        
+        public void ClearController()
         {
-            base.OnInitialize();
-            if (!string.IsNullOrWhiteSpace(BackButtonName))
-            {
-                _backButton = VisualElement.Q<Button>(BackButtonName);
-                _backButton?.RegisterCallback<ClickEvent>(BackButtonClicked);
-            }
-        }
-
-        protected override void OnTerminate()
-        {
+            if (Controller == null)
+                throw new InvalidOperationException("Cannot clear the controller while it is not set");
             Controller = null;
-            _backButton?.UnregisterCallback<ClickEvent>(BackButtonClicked);
-            base.OnTerminate();
-        }
-
-        public bool SetBackButtonActive(bool active)
-        {
-            if (_backButton != null)
-            {
-                _backButton.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
-                return true;
-            }
-            return false;
-        }
-
-        private void BackButtonClicked(ClickEvent clickEvent)
-        {
-            if (Visibility == WidgetVisibility.Visible)
-            {
-                Controller.Return();
-            }
         }
     }
 }

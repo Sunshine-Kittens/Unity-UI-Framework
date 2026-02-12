@@ -4,12 +4,12 @@ using UnityEngine;
 
 namespace UIFramework.Navigation
 {
-    public readonly struct NavigationResponse<TWidget> where TWidget : class, IWidget 
+    public readonly struct NavigationResponse<TWindow> where TWindow : class, IWindow 
     {
-        public readonly NavigationResult<TWidget> NavigationResult;
+        public readonly NavigationResult<TWindow> NavigationResult;
         private readonly Awaitable _completionTask;
 
-        public NavigationResponse(in NavigationResult<TWidget> navigationResult, Awaitable completionTask)
+        public NavigationResponse(in NavigationResult<TWindow> navigationResult, Awaitable completionTask)
         {
             NavigationResult = navigationResult;
             if (completionTask != null)

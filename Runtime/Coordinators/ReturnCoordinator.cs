@@ -11,22 +11,22 @@ using UnityEngine;
 
 namespace UIFramework.Coordinators
 {
-    public class ReturnCoordinator<TWidget> : IReturnNavigator<TWidget> where TWidget : class, IWidget
+    public class ReturnCoordinator<TWindow> : IReturnNavigator<TWindow> where TWindow : class, IWindow
     {
-        private readonly WidgetNavigator<TWidget> _widgetNavigator;
+        private readonly WindowNavigator<TWindow> _windowNavigator;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
         
-        public ReturnCoordinator(WidgetNavigator<TWidget> widgetNavigator, History history, TransitionManager transitionManager)
+        public ReturnCoordinator(WindowNavigator<TWindow> windowNavigator, History history, TransitionManager transitionManager)
         {
             _transitionManager = transitionManager;
-            _widgetNavigator = widgetNavigator;
+            _windowNavigator = windowNavigator;
             _history = history;
         }
 
-        public NavigationResponse<TWidget> Return(CancellationToken cancellationToken = default)
+        public NavigationResponse<TWindow> Return(CancellationToken cancellationToken = default)
         {
-            NavigationResult<TWidget> result = _widgetNavigator.Return();
+            NavigationResult<TWindow> result = _windowNavigator.Return();
             Awaitable awaitable = null;
             if (result.Success)
             {
@@ -39,7 +39,7 @@ namespace UIFramework.Coordinators
                 awaitable = _transitionManager.Transition(transition, result.Active, result.Previous, 
                     cancellationToken);
             }
-            return new NavigationResponse<TWidget>(result, awaitable);
+            return new NavigationResponse<TWindow>(result, awaitable);
         }
     }
 }

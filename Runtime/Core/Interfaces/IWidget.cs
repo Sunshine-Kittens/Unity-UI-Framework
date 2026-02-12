@@ -75,7 +75,7 @@ namespace UIFramework.Core.Interfaces
         public void Terminate();
         
         public new IWidget GetChildAt(int index);
-        public void UpdateWidget(float deltaTime);
+        public void Tick(float deltaTime);
         
         public void SetVisibility(WidgetVisibility visibility);
         

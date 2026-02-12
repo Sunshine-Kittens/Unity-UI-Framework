@@ -11,14 +11,14 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Navigation
 {
-    public readonly ref struct ActivateRequest<TWidget> where TWidget : class, IWidget
+    public readonly ref struct ActivateRequest<TWindow> where TWindow : class, IWindow
     {
         private readonly IActivatorVersion _activatorVersion;
-        private readonly IActivateRequestProcessor<TWidget> _processor;
-        private readonly TWidget _sourceWidget;
-        private readonly TWidget _targetWidget;
+        private readonly IActivateRequestProcessor<TWindow> _processor;
+        private readonly TWindow _sourceWindow;
+        private readonly TWindow _targetWindow;
 
-        public TWidget Widget => _targetWidget;
+        public TWindow Window => _targetWindow;
         public readonly object Data;
         public readonly CancellationToken CancellationToken;
         
@@ -43,14 +43,14 @@ namespace UIFramework.Navigation
             CancellationToken = 1 << 5
         }
 
-        internal ActivateRequest(IActivatorVersion activatorVersion, IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget)
+        internal ActivateRequest(IActivatorVersion activatorVersion, IActivateRequestProcessor<TWindow> processor, TWindow sourceWindow, TWindow targetWindow)
         {
             _activatorVersion = activatorVersion;
             _version = activatorVersion.Version;
             _processor = processor;
             
-            _sourceWidget = sourceWidget;
-            _targetWidget = targetWidget;
+            _sourceWindow = sourceWindow;
+            _targetWindow = targetWindow;
             
             Data = null;
             _animationRef = WidgetAnimationRef.None;
@@ -61,15 +61,15 @@ namespace UIFramework.Navigation
             _flags = BuilderFlags.None;
         }
         
-        private ActivateRequest(IActivatorVersion activatorVersion, int version, IActivateRequestProcessor<TWidget> processor, TWidget sourceWidget, TWidget targetWidget, object data, WidgetAnimationRef animation, float length, 
+        private ActivateRequest(IActivatorVersion activatorVersion, int version, IActivateRequestProcessor<TWindow> processor, TWindow sourceWindow, TWindow targetWindow, object data, WidgetAnimationRef animation, float length, 
             EasingMode easingMode, VisibilityTransitionParams? transitionParams, CancellationToken cancellationToken, BuilderFlags flags)
         {
             _activatorVersion = activatorVersion;
             _version = version;
             _processor = processor;
             
-            _sourceWidget = sourceWidget;
-            _targetWidget = targetWidget;
+            _sourceWindow = sourceWindow;
+            _targetWindow = targetWindow;
             
             Data = data;
             _animationRef = animation;
@@ -80,14 +80,14 @@ namespace UIFramework.Navigation
             _flags = flags;
         }
         
-        public ActivateRequest<TWidget> WithData(object data)
+        public ActivateRequest<TWindow> WithData(object data)
         {
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 data,
                 _animationRef,
                 _length,
@@ -98,16 +98,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateRequest<TWidget> WithAnimation(WidgetAnimationRef animation)
+        public ActivateRequest<TWindow> WithAnimation(WidgetAnimationRef animation)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit animation and transition");
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 animation,
                 _length,
@@ -118,16 +118,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateRequest<TWidget> WithLength(float length)
+        public ActivateRequest<TWindow> WithLength(float length)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit length and transition");
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 length,
@@ -138,16 +138,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateRequest<TWidget> WithEasingMode(EasingMode easingMode)
+        public ActivateRequest<TWindow> WithEasingMode(EasingMode easingMode)
         {
             if(_flags.HasFlag(BuilderFlags.Transition)) 
                 throw new InvalidOperationException("Cannot define both an explicit easing mode and transition");
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -158,16 +158,16 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateRequest<TWidget> WithTransition(VisibilityTransitionParams transitionParams)
+        public ActivateRequest<TWindow> WithTransition(VisibilityTransitionParams transitionParams)
         {
             if(_flags.HasFlag(BuilderFlags.Animation)) 
                 throw new InvalidOperationException("Cannot define both an explicit transition and animation");
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -178,14 +178,14 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateRequest<TWidget> WithCancellation(CancellationToken cancellationToken)
+        public ActivateRequest<TWindow> WithCancellation(CancellationToken cancellationToken)
         {
-            return new ActivateRequest<TWidget>(
+            return new ActivateRequest<TWindow>(
                 _activatorVersion,
                 _version,
                 _processor,
-                _sourceWidget,
-                _targetWidget,
+                _sourceWindow,
+                _targetWindow,
                 Data,
                 _animationRef,
                 _length,
@@ -196,7 +196,7 @@ namespace UIFramework.Navigation
             );
         }
         
-        public ActivateResponse<TWidget> Execute()
+        public ActivateResponse<TWindow> Execute()
         {
             return _processor.ProcessActivateRequest(in this);
         }
@@ -215,10 +215,10 @@ namespace UIFramework.Navigation
             if (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.HasValue)
                 return _transitionParams.Value;
 
-            IAnimation exitAnimation = _sourceWidget.GetDefaultAnimation(WidgetVisibility.Hidden);
+            IAnimation exitAnimation = _sourceWindow.GetDefaultAnimation(WidgetVisibility.Hidden);
             IAnimation entryAnimation = _flags.HasFlag(BuilderFlags.Animation) ?
-                _animationRef.Resolve(_targetWidget, WidgetVisibility.Visible) : 
-                _targetWidget.GetDefaultAnimation(WidgetVisibility.Visible);
+                _animationRef.Resolve(_targetWindow, WidgetVisibility.Visible) : 
+                _targetWindow.GetDefaultAnimation(WidgetVisibility.Visible);
 
             if (exitAnimation == null && entryAnimation == null)
                 return Transitioning.Transition.None();

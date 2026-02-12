@@ -9,28 +9,28 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Coordinators
 {
-    public class ActivateIndexCoordinator<TWidget> : IActivateIndexRequestFactory<TWidget>, IActivateRequestProcessor<TWidget> where TWidget : class, IWidget
+    public class ActivateIndexCoordinator<TWindow> : IActivateIndexRequestFactory<TWindow>, IActivateRequestProcessor<TWindow> where TWindow : class, IWindow
     {
-        private readonly IActivateRequestProcessor<TWidget> _processor;
-        private readonly WidgetRegistry<TWidget> _registry;
-        private readonly WidgetActivator<TWidget> _widgetActivator;
+        private readonly IActivateRequestProcessor<TWindow> _processor;
+        private readonly WidgetRegistry<TWindow> _registry;
+        private readonly WindowActivator<TWindow> _windowActivator;
         
-        public ActivateIndexCoordinator(IActivateRequestProcessor<TWidget> processor, WidgetRegistry<TWidget> registry, WidgetActivator<TWidget> widgetActivator)
+        public ActivateIndexCoordinator(IActivateRequestProcessor<TWindow> processor, WidgetRegistry<TWindow> registry, WindowActivator<TWindow> windowActivator)
         {
             _processor = processor;
             _registry = registry;
-            _widgetActivator = widgetActivator;
+            _windowActivator = windowActivator;
         }
         
-        public ActivateRequest<TWidget> CreateActivateRequest(int index)
+        public ActivateRequest<TWindow> CreateActivateRequest(int index)
         {
             if (!_registry.Widgets.IsValidIndex(index))
                 throw new IndexOutOfRangeException();
             
-            return new ActivateRequest<TWidget>(_widgetActivator, this, _widgetActivator.Active, _registry.Widgets[index]);
+            return new ActivateRequest<TWindow>(_windowActivator, this, _windowActivator.Active, _registry.Widgets[index]);
         }
         
-        public ActivateResponse<TWidget> ProcessActivateRequest(in ActivateRequest<TWidget> request)
+        public ActivateResponse<TWindow> ProcessActivateRequest(in ActivateRequest<TWindow> request)
         {
             return _processor.ProcessActivateRequest(request);
         }

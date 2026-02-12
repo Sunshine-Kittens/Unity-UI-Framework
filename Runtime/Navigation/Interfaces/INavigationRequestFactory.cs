@@ -2,8 +2,9 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation.Interfaces
 {
-    public interface INavigationRequestFactory<TWidget> where TWidget : class, IWidget
+    public interface INavigationRequestFactory<TWindow> where TWindow : class, IWindow
     {
-        public NavigationRequest<TWidget> CreateNavigationRequest(TWidget widget);
-        public NavigationRequest<TWidget> CreateNavigationRequest<TTarget>() where TTarget : class, TWidget; }
+        public NavigationRequest<TWindow> CreateNavigationRequest(TWindow window);
+        public NavigationRequest<TWindow> CreateNavigationRequest<TTarget>() where TTarget : class, TWindow;
+    }
 }

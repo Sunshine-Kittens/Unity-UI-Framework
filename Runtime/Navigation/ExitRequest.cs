@@ -20,13 +20,13 @@ namespace UIFramework.Navigation
             return (Length.HasValue && Mathf.Approximately(Length.Value, 0.0F)) || (!Length.HasValue && !Animation.IsValid);
         }
         
-        public AnimationPlayable GetAnimation(IWidget widget, TimeMode timeMode)
+        public AnimationPlayable GetAnimation(IWindow window, TimeMode timeMode)
         {
             if (IsInstant()) return default;
             
             IAnimation animation = Animation.IsValid ?
-                Animation.Resolve(widget, WidgetVisibility.Hidden) : 
-                widget.GetDefaultAnimation(WidgetVisibility.Hidden);
+                Animation.Resolve(window, WidgetVisibility.Hidden) : 
+                window.GetDefaultAnimation(WidgetVisibility.Hidden);
 
             if (animation == null) return default;
             

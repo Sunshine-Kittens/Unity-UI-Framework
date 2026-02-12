@@ -188,14 +188,14 @@ namespace UIFramework.Core
             return _children[index];
         }
 
-        public void UpdateWidget(float deltaTime)
+        public void Tick(float deltaTime)
         {
             for (int i = 0; i < _children.Count; i++)
             {
                 TWidget child = _children[i];
                 if (child.gameObject.activeInHierarchy)
                 {
-                    child.UpdateWidget(deltaTime);
+                    child.Tick(deltaTime);
                 }
             }
         }

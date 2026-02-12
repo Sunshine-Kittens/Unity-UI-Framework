@@ -2,8 +2,8 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation.Interfaces
 {
-    public interface IActivateRequestProcessor<TWidget> where TWidget : class, IWidget
+    public interface IActivateRequestProcessor<TWindow> where TWindow : class, IWindow
     {
-        public ActivateResponse<TWidget> ProcessActivateRequest(in ActivateRequest<TWidget> request);
+        public ActivateResponse<TWindow> ProcessActivateRequest(in ActivateRequest<TWindow> request);
     }
 }

@@ -1,12 +1,9 @@
 namespace UIFramework.Core.Interfaces
 {
+    public delegate void WindowAction(IWindow window);
+    public delegate void WindowIndexAction(IWindow window, int index);
+    
     public interface IReadOnlyWindow : IReadOnlyWidget { }
-
-    /// <summary>
-    /// Interface <c>IWindow</c> defines expected contract for all <c>UIFramework</c> windows.
-    /// </summary>
-    public interface IWindow : IReadOnlyWindow, IWidget
-    {
-        public void SetWaiting(bool waiting);
-    }
+    
+    public interface IWindow : IReadOnlyWindow, IWidget { }
 }

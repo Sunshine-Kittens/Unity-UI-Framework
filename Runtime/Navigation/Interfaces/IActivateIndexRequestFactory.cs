@@ -2,8 +2,8 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation.Interfaces
 {
-    public interface IActivateIndexRequestFactory<TWidget> where TWidget : class, IWidget
+    public interface IActivateIndexRequestFactory<TWindow> where TWindow : class, IWindow
     {
-        public ActivateRequest<TWidget> CreateActivateRequest(int index); 
+        public ActivateRequest<TWindow> CreateActivateRequest(int index); 
     }
 }

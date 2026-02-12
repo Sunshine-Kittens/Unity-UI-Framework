@@ -10,31 +10,31 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Coordinators
 {
-    public class ActivateRequestProcessor<TWidget> : IActivateRequestProcessor<TWidget> where TWidget : class, IWidget
+    public class ActivateRequestProcessor<TWindow> : IActivateRequestProcessor<TWindow> where TWindow : class, IWindow
     {
         private readonly TimeMode _timeMode;
-        private readonly WidgetActivator<TWidget> _widgetActivator;
+        private readonly WindowActivator<TWindow> _windowActivator;
         private readonly TransitionManager _transitionManager;
         
-        public ActivateRequestProcessor(TimeMode timeMode, WidgetActivator<TWidget> widgetActivator, TransitionManager transitionManager)
+        public ActivateRequestProcessor(TimeMode timeMode, WindowActivator<TWindow> windowActivator, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
-            _widgetActivator = widgetActivator;
+            _windowActivator = windowActivator;
             _transitionManager = transitionManager;
         }
         
-        public ActivateResponse<TWidget> ProcessActivateRequest(in ActivateRequest<TWidget> request)
+        public ActivateResponse<TWindow> ProcessActivateRequest(in ActivateRequest<TWindow> request)
         {
             Awaitable awaitable = null;
-            ActivateResult<TWidget> result = _widgetActivator.Activate(request.Widget);
+            ActivateResult<TWindow> result = _windowActivator.Activate(request.Window);
             if (result.Success)
             {
                 awaitable = Activate(request.Transition, result.Active, result.Previous, request.Data, request.CancellationToken);
             }
-            return new ActivateResponse<TWidget>(result, awaitable);
+            return new ActivateResponse<TWindow>(result, awaitable);
         }
         
-        private Awaitable Activate(VisibilityTransitionParams transition, TWidget target, TWidget source, object data, CancellationToken cancellationToken)
+        private Awaitable Activate(VisibilityTransitionParams transition, TWindow target, TWindow source, object data, CancellationToken cancellationToken)
         {
             Awaitable awaitable = null;
             if (data != null) target.SetData(data);

@@ -13,24 +13,24 @@ namespace UIFramework.Navigation
         public int Version { get; }
     }
     
-    public class WidgetActivator<TWidget> : IActivatorVersion where TWidget : class, IWidget
+    public class WindowActivator<TWindow> : IActivatorVersion where TWindow : class, IWindow
     {
         public int Version { get; private set; }
 
-        public TWidget Active { get; private set; }
+        public TWindow Active { get; private set; }
         public Type ActiveType { get; private set; } = null;
 
-        public event Action<ActivateResult<TWidget>> OnActivateUpdate;
+        public event Action<ActivateResult<TWindow>> OnActivateUpdate;
 
         private int _cachedActiveIndex = -1;
-        private readonly WidgetRegistry<TWidget> _registry;
+        private readonly WidgetRegistry<TWindow> _registry;
 
-        private WidgetActivator() { }
+        private WindowActivator() { }
 
-        public WidgetActivator(WidgetRegistry<TWidget> widgetRegistry)
+        public WindowActivator(WidgetRegistry<TWindow> registry)
         {
-            _registry = widgetRegistry ?? throw new ArgumentNullException(nameof(widgetRegistry));
-            _registry.WidgetUnregistered += OnWidgetUnregistered;
+            _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            _registry.WidgetUnregistered += OnWindowUnregistered;
         }
 
         public int GetActiveIndex()
@@ -42,29 +42,29 @@ namespace UIFramework.Navigation
             return UpdateActiveIndex();
         }
         
-        public ActivateResult<TWidget> Activate(TWidget target)
+        public ActivateResult<TWindow> Activate(TWindow target)
         {
             Type targetType = target.GetType();
             if (ValidateTarget(targetType, target, out int index))
             {
                 return Activate(targetType, target, index);
             }
-            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(false, Active, null, _cachedActiveIndex));
+            return InvokeActiveWindowUpdate(new ActivateResult<TWindow>(false, Active, null, _cachedActiveIndex));
         }
         
-        private ActivateResult<TWidget> Activate(Type type, TWidget target, int index)
+        private ActivateResult<TWindow> Activate(Type type, TWindow target, int index)
         {
-            TWidget previous = Active;
+            TWindow previous = Active;
             ActiveType = type;
             Active = target;
             _cachedActiveIndex = index;
             Version++;
-            return InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, target, previous, index));
+            return InvokeActiveWindowUpdate(new ActivateResult<TWindow>(true, target, previous, index));
         }
         
-        private bool ValidateTarget(Type type, TWidget target, out int index)
+        private bool ValidateTarget(Type type, TWindow target, out int index)
         {
-            if (!ValidateTarget(type, out TWidget cached, out index))
+            if (!ValidateTarget(type, out TWindow cached, out index))
             {
                 return false;
             }
@@ -76,7 +76,7 @@ namespace UIFramework.Navigation
             return true;
         }
 
-        private bool ValidateTarget(Type type, out TWidget target, out int index)
+        private bool ValidateTarget(Type type, out TWindow target, out int index)
         {
             target = null;
             index = -1;
@@ -93,10 +93,10 @@ namespace UIFramework.Navigation
             return target.IsInitialized;
         }
         
-        private ActivateResult<TWidget> InvokeActiveWidgetUpdate(ActivateResult<TWidget> setActiveWidgetResult)
+        private ActivateResult<TWindow> InvokeActiveWindowUpdate(ActivateResult<TWindow> setActiveResult)
         {
-            OnActivateUpdate?.Invoke(setActiveWidgetResult);
-            return setActiveWidgetResult;
+            OnActivateUpdate?.Invoke(setActiveResult);
+            return setActiveResult;
         }
 
         private int UpdateActiveIndex()
@@ -112,7 +112,7 @@ namespace UIFramework.Navigation
         {
             if (_cachedActiveIndex != -1)
             {
-                if (_registry.TryGet(ActiveType, out TWidget widget, out activeIndex) && widget == Active)
+                if (_registry.TryGet(ActiveType, out TWindow window, out activeIndex) && window == Active)
                 {
                     return activeIndex != _cachedActiveIndex;
                 }
@@ -122,18 +122,18 @@ namespace UIFramework.Navigation
             return false;
         }
 
-        private void OnWidgetUnregistered(TWidget widget, int index)
+        private void OnWindowUnregistered(TWindow window, int index)
         {
             if (HasActiveIndexChanged(out int activeIndex))
             {
-                TWidget previous = Active;
+                TWindow previous = Active;
                 if (activeIndex == -1)
                 {
                     Active = null;
                     ActiveType = null;   
                 }
                 UpdateActiveIndex();
-                InvokeActiveWidgetUpdate(new ActivateResult<TWidget>(true, Active, previous, activeIndex));
+                InvokeActiveWindowUpdate(new ActivateResult<TWindow>(true, Active, previous, activeIndex));
             }
         }
     }

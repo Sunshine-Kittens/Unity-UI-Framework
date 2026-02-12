@@ -4,8 +4,8 @@ using UIFramework.Core.Interfaces;
 
 namespace UIFramework.Navigation.Interfaces
 {
-    public interface IReturnNavigator<TWidget> where TWidget : class, IWidget
+    public interface IReturnNavigator<TWindow> where TWindow : class, IWindow
     {
-        public NavigationResponse<TWidget> Return(CancellationToken cancellationToken = default);
+        public NavigationResponse<TWindow> Return(CancellationToken cancellationToken = default);
     }
 }
