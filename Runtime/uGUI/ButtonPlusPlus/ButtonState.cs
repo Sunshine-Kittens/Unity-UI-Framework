@@ -26,6 +26,9 @@ namespace UIFramework.UGUI
         public ButtonState(string name)
         {
             _name = name;
+            _colors = default;
+            _normalSprite = null;
+            _animationTriggers = null;
         }
 
         public ButtonState(string name, ColorBlock colors, Sprite normalSprite, SpriteState spriteState, AnimationTriggers animationTriggers)
