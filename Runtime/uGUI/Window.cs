@@ -55,6 +55,8 @@ namespace UIFramework.UGUI
 
         public bool IsVisible { get { return AccessState != AccessState.Closed; } }
 
+        public float Opacity => _canvasGroup.alpha;
+        
         IReadOnlyScalarFlag IReadOnlyWindow.IsEnabled => IsEnabled;
         public IScalarFlag IsEnabled => _isEnabled;
         private readonly ScalarFlag _isEnabled = new ScalarFlag(true);
@@ -401,5 +403,10 @@ namespace UIFramework.UGUI
         {
             gameObject.SetActive(value);
         }
+        
+        public void SetOpacity(float opacity)
+        {
+            _canvasGroup.alpha = opacity;
+        }  
     }
 }

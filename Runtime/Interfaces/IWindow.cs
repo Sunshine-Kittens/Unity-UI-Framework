@@ -9,6 +9,9 @@ namespace UIFramework
         string Identifier { get; }
         
         bool IsVisible { get; }
+        
+        public float Opacity { get; }
+        
         IReadOnlyScalarFlag IsHidden { get; }
         IReadOnlyScalarFlag IsEnabled { get; }
         IReadOnlyScalarFlag IsInteractable { get; }
@@ -30,5 +33,7 @@ namespace UIFramework
         GenericWindowAnimation GetAnimation(GenericWindowAnimationType type);        
 
         bool SetWaiting(bool waiting);
+        
+        public void SetOpacity(float opacity);
     }
 }

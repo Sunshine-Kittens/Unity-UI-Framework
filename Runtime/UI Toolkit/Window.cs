@@ -34,6 +34,8 @@ namespace UIFramework.UIToolkit
         public string Identifier { get; } = string.Empty;
         public bool IsVisible { get { return AccessState != AccessState.Closed; } }
 
+        public float Opacity => _visualElement.style.opacity.value;
+
         IReadOnlyScalarFlag IReadOnlyWindow.IsEnabled => IsEnabled;
         public IScalarFlag IsEnabled => _isEnabled;
         private readonly ScalarFlag _isEnabled = new ScalarFlag(true);
@@ -497,6 +499,11 @@ namespace UIFramework.UIToolkit
         private void OnIsHiddenUpdated(bool value)
         {
             _visualElement.style.display = value ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+        
+        public void SetOpacity(float opacity)
+        {
+            _visualElement.style.opacity = opacity;
         }
     }
 }

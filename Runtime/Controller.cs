@@ -25,6 +25,9 @@ namespace UIFramework
         public IScalarFlag IsHidden => _isHidden;
         private readonly ScalarFlag _isHidden = new ScalarFlag(false);
 
+        public float Opacity => _opacity;
+        private float _opacity = 1.0F;
+        
         public virtual TimeMode TimeMode { get { return _timeMode; } protected set { _timeMode = value; } }
         [SerializeField] private TimeMode _timeMode = TimeMode.Scaled;
 
@@ -663,6 +666,15 @@ namespace UIFramework
             else
             {
                 OnShow();
+            }
+        }
+        
+        public void SetOpacity(float opacity)
+        {
+            _opacity = opacity;
+            for (int i = 0; i < _screens.Length; i++)
+            {
+                _screens[i].SetOpacity(opacity);
             }
         }
     }
