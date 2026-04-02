@@ -501,7 +501,7 @@ namespace UIFramework.UIToolkit
             _visualElement.style.display = value ? DisplayStyle.None : DisplayStyle.Flex;
         }
         
-        public void SetOpacity(float opacity)
+        public virtual void SetOpacity(float opacity)
         {
             _visualElement.style.opacity = opacity;
         }

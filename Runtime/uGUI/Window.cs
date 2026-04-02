@@ -404,9 +404,9 @@ namespace UIFramework.UGUI
             gameObject.SetActive(value);
         }
         
-        public void SetOpacity(float opacity)
+        public virtual void SetOpacity(float opacity)
         {
-            _canvasGroup.alpha = opacity;
+            CanvasGroup.alpha = opacity;
         }  
     }
 }
