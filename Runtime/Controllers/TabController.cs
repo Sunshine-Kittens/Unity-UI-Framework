@@ -3,6 +3,7 @@ using System;
 using UIFramework.Coordinators;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.Context;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
@@ -11,7 +12,10 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public sealed class TabController<TWindow> : IActivateRequestFactory<TWindow>, IActivateIndexRequestFactory<TWindow> where TWindow : class, IWindow
+    public sealed class TabController<TWindow> : 
+        INavigateToRequestFactory<TWindow, WindowIndexContext<TWindow>>, 
+        INavigateToIndexRequestFactory<TWindow, WindowIndexContext<TWindow>> 
+        where TWindow : class, IWindow
     {
         public IWidgetRegistry<TWindow> Registry => _registry;
         
@@ -27,7 +31,7 @@ namespace UIFramework.Controllers
         public bool IsInitialized => _registry.IsInitialized;
         
         private readonly WidgetRegistry<TWindow> _registry;
-        private readonly WindowActivator<TWindow> _activator;
+        private readonly WindowIndexNavigator<TWindow> _activator;
         private readonly TransitionManager _transitionManager;
         private readonly ActivateCoordinator<TWindow> _activateCoordinator;
         private readonly ActivateIndexCoordinator<TWindow> _activateIndexCoordinator;
@@ -81,21 +85,21 @@ namespace UIFramework.Controllers
             _transitionManager.Terminate();
         }
         
-        public ActivateRequest<TWindow> CreateActivateRequest(TWindow window)
+        public NavigateToRequest<TWindow, WindowIndexContext<TWindow>> CreateNavigateToRequest(TWindow window)
         {
             if(!IsInitialized)
                 throw new InvalidOperationException("TabController is  not initialized.");
             return _activateCoordinator.CreateActivateRequest(window);
         }
         
-        public ActivateRequest<TWindow> CreateActivateRequest<TTarget>() where TTarget : class, TWindow
+        public NavigateToRequest<TWindow, WindowIndexContext<TWindow>> CreateNavigateToRequest<TTarget>() where TTarget : class, TWindow
         {
             if(!IsInitialized)
                 throw new InvalidOperationException("TabController is  not initialized.");
             return _activateCoordinator.CreateActivateRequest<TTarget>();
         }
         
-        public ActivateRequest<TWindow> CreateActivateRequest(int index)
+        public NavigateToRequest<TWindow, WindowIndexContext<TWindow>> CreateNavigateToIndexRequest(int index)
         {
             if(!IsInitialized)
                 throw new InvalidOperationException("TabController is  not initialized.");

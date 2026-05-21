@@ -1,16 +1,16 @@
 ﻿using System;
 
-using UIFramework.Controllers;
+using UIFramework.Controllers.Interfaces;
 using UIFramework.Core.Interfaces;
 
 namespace UIFramework.UIToolkit
 {
     public class Screen : Window, IScreen
     {
-        public ScreenController Controller { get; private set; } = null;
+        public IScreenController Controller { get; private set; } = null;
 
         // IScreen
-        public void SetController(ScreenController controller)
+        public void SetController(IScreenController controller)
         {
             if (Controller != null)
             {

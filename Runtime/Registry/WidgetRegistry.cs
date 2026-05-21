@@ -211,6 +211,11 @@ namespace UIFramework.Registry
             return -1;
         }
         
+        public int IndexOf(TWidget widget)
+        {
+            return _widgets.IndexOf(widget);
+        }
+        
         public void Initialize()
         {
             if (_isInitialized) throw new InvalidOperationException("Registry already initialized");

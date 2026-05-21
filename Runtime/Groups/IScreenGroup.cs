@@ -6,9 +6,9 @@ using UIFramework.Navigation.Interfaces;
 
 using UnityEngine.Extension;
 
-namespace UIFramework.Controllers.Interfaces
+namespace UIFramework.Groups
 {
-    public interface IScreenController : IUpdatable, INavigateToRequestFactory<IScreen>, IReturnNavigator<IScreen>, IExitNavigator<IScreen>
+    public interface IScreenGroup : IUpdatable, INavigateToRequestFactory<IScreen>, IReturnNavigator<IScreen>, IExitNavigator<IScreen>
     {
         public bool IsInitialized { get; }
         public InitializationState State { get; }
@@ -22,8 +22,6 @@ namespace UIFramework.Controllers.Interfaces
         public IScalarFlag IsEnabled { get; }
         public IScalarFlag IsInteractable { get; }
 
-        public TimeMode TimeMode { get; }
-        
         public event Action Entering;
         public event Action Entered;
         public event Action Exiting;

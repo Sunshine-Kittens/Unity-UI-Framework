@@ -1,5 +1,6 @@
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.Context;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Transitioning;
 
@@ -8,27 +9,29 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Coordinators
 {
-    public class ExitCoordinator<TWindow> : IExitNavigator<TWindow> where TWindow : class, IWindow
+    public class ExitCoordinator<TWindow, TContext> : IExitNavigator<TWindow, TContext> 
+        where TWindow : class, IWindow
+        where TContext : WindowContext<TWindow>
     {
         private readonly TimeMode _timeMode;
-        private readonly WindowNavigator<TWindow> _windowNavigator;
+        private readonly WindowNavigator<TWindow, TContext> _windowNavigator;
         private readonly TransitionManager _transitionManager;
         
-        public ExitCoordinator(TimeMode timeMode, WindowNavigator<TWindow> windowNavigator, TransitionManager transitionManager)
+        public ExitCoordinator(TimeMode timeMode, WindowNavigator<TWindow, TContext> windowNavigator, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _transitionManager = transitionManager;
             _windowNavigator = windowNavigator;
         }
 
-        public NavigationResponse<TWindow> Exit(in ExitRequest request)
+        public NavigateToResponse<TWindow, TContext> Exit(in ExitRequest request)
         {
-            NavigationResult<TWindow> result = _windowNavigator.Clear();
+            NavigateToResult<TWindow, TContext> result = _windowNavigator.Clear();
             Awaitable awaitable = null;
             if (result.Success)
             {
                 _transitionManager.Terminate();
-                IWindow window = result.Previous;
+                IWindow window = result.Previous.Window;
                 AnimationPlayable playable = GetAnimationPlayable(in request, window, _timeMode);
                 if (playable.IsValid())
                 {
@@ -40,7 +43,7 @@ namespace UIFramework.Coordinators
                 }
                  
             }
-            return new NavigationResponse<TWindow>(result, awaitable);
+            return new NavigateToResponse<TWindow, TContext>(result, awaitable);
         }
         
         private bool IsRequestInstant(in ExitRequest request)

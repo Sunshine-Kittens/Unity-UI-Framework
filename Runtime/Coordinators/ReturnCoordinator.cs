@@ -4,6 +4,7 @@ using System.Threading;
 using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.Context;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Transitioning;
 
@@ -11,7 +12,8 @@ using UnityEngine;
 
 namespace UIFramework.Coordinators
 {
-    public class ReturnCoordinator<TWindow> : IReturnNavigator<TWindow> where TWindow : class, IWindow
+    public class ReturnCoordinator<TWindow> : IReturnNavigator<TWindow> 
+        where TWindow : class, IWindow
     {
         private readonly WindowNavigator<TWindow> _windowNavigator;
         private readonly History _history;
@@ -24,9 +26,9 @@ namespace UIFramework.Coordinators
             _history = history;
         }
 
-        public NavigationResponse<TWindow> Return(CancellationToken cancellationToken = default)
+        public NavigateToResponse<TWindow> Return(CancellationToken cancellationToken = default)
         {
-            NavigationResult<TWindow> result = _windowNavigator.Return();
+            NavigateToResult<TWindow> result = _windowNavigator.Return();
             Awaitable awaitable = null;
             if (result.Success)
             {
@@ -36,10 +38,10 @@ namespace UIFramework.Coordinators
                     throw new InvalidOperationException($"Unable to find transition event for entry {historyEntry.ID}.");
 
                 VisibilityTransitionParams transition = transitionEvent.Transition.Invert();
-                awaitable = _transitionManager.Transition(transition, result.Active, result.Previous, 
+                awaitable = _transitionManager.Transition(transition, result.Active.Window, result.Previous.Window, 
                     cancellationToken);
             }
-            return new NavigationResponse<TWindow>(result, awaitable);
+            return new NavigateToResponse<TWindow>(result, awaitable);
         }
     }
 }

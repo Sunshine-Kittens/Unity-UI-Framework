@@ -8,6 +8,7 @@ using UIFramework.Coordinators;
 using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
+using UIFramework.Navigation.History;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
 
@@ -28,8 +29,8 @@ namespace UIFramework.Controllers
 
         public bool Active => IsInitialized && IsVisible;
 
-        public bool IsInitialized => State == ScreenControllerState.Initialized;
-        public ScreenControllerState State { get; private set; } = ScreenControllerState.Uninitialized;
+        public bool IsInitialized => State == InitializationState.Initialized;
+        public InitializationState State { get; private set; } = InitializationState.Uninitialized;
         public bool IsVisible => _visibilityState > 0 && _visibilityState < VisibilityState.Exited && Opacity > 0.0F;
         
         public float Opacity => _opacity;
@@ -66,8 +67,6 @@ namespace UIFramework.Controllers
             protected set => _timeMode = value;
         }
         private TimeMode _timeMode;
-
-        public IHistoryGroups HistoryGroups => _history;
         
         protected IEnumerable<WidgetCollector<IScreen>> Collectors { get; }
 
@@ -86,7 +85,7 @@ namespace UIFramework.Controllers
         private readonly WindowNavigator<IScreen> _navigator;
         private readonly TransitionManager _transitionManager;
         
-        private readonly NavigationCoordinator<IScreen> _navigationCoordinator;
+        private readonly NavigateToCoordinator<IScreen> _navigateToCoordinator;
         private readonly ReturnCoordinator<IScreen> _returnCoordinator;
         private readonly ExitCoordinator<IScreen> _exitCoordinator;
         
@@ -122,12 +121,12 @@ namespace UIFramework.Controllers
             }
             
             _registry = new WidgetRegistry<IScreen>(OnScreenInitialize, OnScreenTerminate);
-            _history = new History(_registry.Widgets.Count, _registry.Widgets.Count);
+            _history = new History(_registry.Widgets.Count);
             
             _navigator = new WindowNavigator<IScreen>(_registry, _history);
             
             _transitionManager = new TransitionManager(_timeMode);
-            _navigationCoordinator = new NavigationCoordinator<IScreen>(_timeMode, _registry, _navigator, _history, _transitionManager);
+            _navigateToCoordinator = new NavigateToCoordinator<IScreen>(_timeMode, _registry, _navigator, _history, _transitionManager);
             _returnCoordinator = new ReturnCoordinator<IScreen>(_navigator, _history, _transitionManager);
             _exitCoordinator = new ExitCoordinator<IScreen>(_timeMode, _navigator, _transitionManager);
         }
@@ -163,7 +162,7 @@ namespace UIFramework.Controllers
         
         public void Initialize()
         {
-            if (State == ScreenControllerState.Initialized)
+            if (State == InitializationState.Initialized)
             {
                 throw new InvalidOperationException("Controller already initialized.");
             }
@@ -177,12 +176,12 @@ namespace UIFramework.Controllers
             
             UpdateManager.AddUpdatable(this);
             OnInitialize();
-            State = ScreenControllerState.Initialized; 
+            State = InitializationState.Initialized; 
         }
 
         public void Terminate()
         {
-            if (State != ScreenControllerState.Initialized)
+            if (State != InitializationState.Initialized)
             {
                 throw new InvalidOperationException("Controller cannot be terminated.");
             }
@@ -200,7 +199,7 @@ namespace UIFramework.Controllers
             
             UpdateManager.RemoveUpdatable(this);
             OnTerminate();
-            State = ScreenControllerState.Terminated;
+            State = InitializationState.Terminated;
         }
 
         protected virtual void OnInitialize() { }
@@ -212,22 +211,22 @@ namespace UIFramework.Controllers
         protected virtual void OnExit() { }
         protected virtual void OnExited() { }
 
-        public NavigationRequest<IScreen> CreateNavigationRequest(IScreen screen)
+        public NavigateToRequest<IScreen> CreateNavigateToRequest(IScreen screen)
         {
-            return _navigationCoordinator.CreateNavigationRequest(screen);
+            return _navigateToCoordinator.CreateNavigateToRequest(screen);
         }
         
-        public NavigationRequest<IScreen> CreateNavigationRequest<TTarget>() where TTarget : class, IScreen
+        public NavigateToRequest<IScreen> CreateNavigateToRequest<TTarget>() where TTarget : class, IScreen
         {
-            return _navigationCoordinator.CreateNavigationRequest<TTarget>();
+            return _navigateToCoordinator.CreateNavigateToRequest<TTarget>();
         }
         
-        public NavigationResponse<IScreen> Return(CancellationToken cancellationToken = default)
+        public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)
         {
             return _returnCoordinator.Return(cancellationToken);
         }
         
-        public NavigationResponse<IScreen> Exit(in ExitRequest request)
+        public NavigateToResponse<IScreen> Exit(in ExitRequest request)
         {
             return _exitCoordinator.Exit(in request);
         }
@@ -244,7 +243,7 @@ namespace UIFramework.Controllers
             }
         }
 
-        protected virtual void OnNavigationUpdate(NavigationResult<IScreen> result)
+        protected virtual void OnNavigationUpdate(NavigateToResult<IScreen> result)
         {
             if (result.Success)
             {

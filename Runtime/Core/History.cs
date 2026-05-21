@@ -35,17 +35,7 @@ namespace UIFramework.Core
         public IHistoryEntry Pop();
     }
     
-    public interface IHistoryGroups
-    {
-        public void AddNewGroup();
-        public bool ClearActiveGroup();
-        public bool Clear();
-    }
-    
-    public interface IHistory : IHistoryStack, IHistoryGroups
-    {
-        
-    }
+    public interface IHistory : IHistoryStack { }
     
     // Note: This is not thread safe
     public class History : IHistory
@@ -105,58 +95,44 @@ namespace UIFramework.Core
                 CancelledTime = DateTime.UtcNow;
             }
         }
-
-        public int Count { get; private set; }
-
-        private readonly List<List<HistoryEntry>> _history = new();
-        private readonly int _groupCapacity = 0;
         
-        public History(int capacity, int groupCapacity = 0)
+        public int Count => _history.Count;
+        
+        private readonly List<HistoryEntry> _history;
+        
+        public History(int capacity)
         {
-            _history.Add(new List<HistoryEntry>(capacity));
-            _groupCapacity = groupCapacity;
+            _history = new List<HistoryEntry>(capacity); 
         }
 
         public IHistoryEntry PushNewEntry()
         {
             HistoryEntry entry = new HistoryEntry(Guid.NewGuid());
-            _history[^1].Add(entry);
-            Count++;
+            _history.Add(entry);
             return entry;
         }
 
         public void CommitEntry(Guid guid)
         {
-            if (!FindEntry(guid, out HistoryEntry entry, out _, out _))
+            if (!FindEntry(guid, out HistoryEntry entry, out _))
                 throw new InvalidOperationException("Unable to commit, no valid entry found for guid.");
             entry.Commit();
         }
         
         public void CancelEntry(Guid guid)
         {
-            if (!FindEntry(guid, out HistoryEntry entry, out int groupIndex, out int entryIndex))
+            if (!FindEntry(guid, out HistoryEntry entry, out int index))
                 throw new InvalidOperationException("Unable to cancel, no valid entry found for guid.");
             entry.Cancel();
-            List<HistoryEntry> group = _history[^1];
-            group.RemoveAt(groupIndex);
-            _history[groupIndex].RemoveAt(entryIndex);
-            Count--;
-            if (group.Count == 0 && _history.Count > 1)
-                _history.RemoveAt(groupIndex);
+            _history.RemoveAt(index);
         }
         
         public IHistoryEntry Pop()
         {
-            if (_history[^1].Count > 0)
+            if (_history.Count > 0)
             {
-                Count--;
-                List<HistoryEntry> activeGroup = _history[^1];
-                HistoryEntry entry = activeGroup[^1];
-                activeGroup.RemoveAt(activeGroup.Count - 1);
-                if (activeGroup.Count == 0 && _history.Count > 1)
-                {
-                    _history.RemoveAt(_history.Count - 1);
-                }
+                HistoryEntry entry = _history[^1];
+                _history.RemoveAt(_history.Count - 1);
                 return entry;
             }
             throw new InvalidOperationException("The history stack is empty.");
@@ -164,66 +140,35 @@ namespace UIFramework.Core
 
         public IHistoryEntry Peek()
         {
-            for (int i = _history.Count - 1; i >= 0; i--)
+            if (_history.Count > 0)
             {
-                List<HistoryEntry> group = _history[i];
-                if (group.Count > 0)
-                {
-                    return group[^1];
-                }
+                return _history[^1];
             }
             return null;
         }
 
-        public void AddNewGroup()
-        {
-            _history.Add(new List<HistoryEntry>(_groupCapacity));
-        }
-
-        public bool ClearActiveGroup()
-        {
-            if (_history.Count > 1)
-            {
-                Count -= _history[^1].Count;
-                _history.RemoveAt(_history.Count - 1);
-                return true;
-            }
-            return false;
-        }
-
         public bool Clear()
         {
-            if (Count > 0)
+            if (_history.Count > 0)
             {
-                if (_history.Count > 1)
-                {
-                    _history.RemoveRange(1, _history.Count - 1);
-                }
-                _history[0].Clear();
-                Count = 0;
+                _history.Clear();
                 return true;
             }
             return false;
         }
 
-        private bool FindEntry(Guid guid, out HistoryEntry entry, out int groupIndex, out int entryIndex)
+        private bool FindEntry(Guid guid, out HistoryEntry entry, out int entryIndex)
         {
             for (int i = 0; i < _history.Count; i++)
             {
-                List<HistoryEntry> group = _history[i];
-                for (int j = 0; j < group.Count; j++)
+                if (_history[i].ID == guid)
                 {
-                    if (group[j].ID == guid)
-                    {
-                        entry = group[j];
-                        groupIndex = i;
-                        entryIndex = j;
-                        return true;
-                    }
+                    entry = _history[i];
+                    entryIndex = i;
+                    return true;
                 }
             }
             entry = null;
-            groupIndex = -1;
             entryIndex = -1;
             return false;
         }
