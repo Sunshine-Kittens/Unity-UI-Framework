@@ -8,7 +8,12 @@ namespace UIFramework.Registry
 {
     public interface IWidgetRegistry<TWidget> where TWidget : class, IWidget
     {
+        public event Action<TWidget, int> WidgetRegistered;
+        public event Action<TWidget, int> WidgetIndexChanged;
+        public event Action<TWidget, int> WidgetUnregistered;
+
         public void Register(TWidget widget);
+        public void SetIndex(TWidget widget, int index);
         public void Unregister(TWidget widget);
 
         public void Clear();
@@ -30,6 +35,7 @@ namespace UIFramework.Registry
         public IReadOnlyList<TWidget> Widgets => _widgets;
 
         public event Action<TWidget, int> WidgetRegistered;
+        public event Action<TWidget, int> WidgetIndexChanged;
         public event Action<TWidget, int> WidgetUnregistered;
         
         public bool IsInitialized => _isInitialized;
@@ -98,6 +104,24 @@ namespace UIFramework.Registry
             }
             _widgets.Add(widget);
             WidgetRegistered?.Invoke(widget, _widgets.Count - 1);
+        }
+
+        public void SetIndex(TWidget widget, int index)
+        {
+            if (widget == null) throw new ArgumentNullException(nameof(widget));
+
+            int current = _widgets.IndexOf(widget);
+            if (current == -1)
+                throw new InvalidOperationException($"Widget of type {widget.GetType().Name} is not registered.");
+
+            if (index < 0 || index >= _widgets.Count)
+                throw new ArgumentOutOfRangeException(nameof(index), $"Index must be within [0, {_widgets.Count - 1}].");
+
+            if (current == index) return;
+
+            _widgets.RemoveAt(current);
+            _widgets.Insert(index, widget);
+            WidgetIndexChanged?.Invoke(widget, index);
         }
 
         public void Unregister(TWidget widget)

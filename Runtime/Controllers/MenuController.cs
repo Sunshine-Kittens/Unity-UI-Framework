@@ -9,35 +9,37 @@ namespace UIFramework.Controllers
 {
     public class MenuController : ScreenController
     {
-        private readonly IWidget _background;
+        protected IWidget BackgroundWidget { get; }
 
-        public MenuController(IWidget background, IEnumerable<WidgetCollector<IScreen>> collectors, TimeMode timeMode)
+        public MenuController(IWidget backgroundWidget, IEnumerable<WidgetCollector<IScreen>> collectors, TimeMode timeMode)
             : base(collectors, timeMode)
         {
-            _background = background;
+            BackgroundWidget = backgroundWidget;
         }
 
         protected override void OnEnter()
         {
+            base.OnEnter();
             AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Visible);
             if (playable.IsValid())
-                _background.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate);
+                BackgroundWidget.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate);
             else
-                _background.SetVisibility(WidgetVisibility.Visible);
+                BackgroundWidget.SetVisibility(WidgetVisibility.Visible);
         }
 
-        protected override void OnExited()
+        protected override void OnExit()
         {
+            base.OnExit();
             AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Hidden);
             if (playable.IsValid())
-                _background.AnimateVisibility(WidgetVisibility.Hidden, playable, InterruptBehavior.Immediate);
+                BackgroundWidget.AnimateVisibility(WidgetVisibility.Hidden, playable, InterruptBehavior.Immediate);
             else
-                _background.SetVisibility(WidgetVisibility.Hidden);
+                BackgroundWidget.SetVisibility(WidgetVisibility.Hidden);
         }
 
         protected virtual AnimationPlayable GetBackgroundAnimation(WidgetVisibility visibility)
         {
-            IAnimation animation = _background.GetDefaultAnimation(visibility);
+            IAnimation animation = BackgroundWidget.GetDefaultAnimation(visibility);
             if (animation == null) return default;
             return animation.ToPlayable().WithTimeMode(TimeMode).Create();
         }
