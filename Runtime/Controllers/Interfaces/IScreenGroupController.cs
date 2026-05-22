@@ -1,14 +1,16 @@
 using System;
+using System.Collections.Generic;
 
+using UIFramework.Collectors;
 using UIFramework.Core;
 using UIFramework.Core.Interfaces;
-using UIFramework.Navigation.Interfaces;
+using UIFramework.Groups;
 
 using UnityEngine.Extension;
 
 namespace UIFramework.Controllers.Interfaces
 {
-    public interface IScreenController : IUpdatable, IScreenNavigator
+    public interface IScreenGroupController : IUpdatable
     {
         public bool IsInitialized { get; }
         public InitializationState State { get; }
@@ -16,8 +18,7 @@ namespace UIFramework.Controllers.Interfaces
         public bool IsVisible { get; }
         public float Opacity { get; }
 
-        public IScreen ActiveScreen { get; }
-        public IScreen PreviousScreen { get; }
+        public IReadOnlyList<IScreenGroup> Groups { get; }
 
         public IScalarFlag IsEnabled { get; }
         public IScalarFlag IsInteractable { get; }
@@ -29,10 +30,7 @@ namespace UIFramework.Controllers.Interfaces
         public event Action Exiting;
         public event Action Exited;
 
-        public event ScreenAction ScreenShowing;
-        public event ScreenAction ScreenShown;
-        public event ScreenAction ScreenHiding;
-        public event ScreenAction ScreenHidden;
+        public IScreenGroup AddGroup(IEnumerable<WidgetCollector<IScreen>> collectors);
 
         public void Initialize();
         public void Terminate();

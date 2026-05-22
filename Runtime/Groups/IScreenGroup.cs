@@ -8,17 +8,17 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Groups
 {
-    public interface IScreenGroup : IUpdatable, INavigateToRequestFactory<IScreen>, IReturnNavigator<IScreen>, IExitNavigator<IScreen>
+    public interface IScreenGroup : IUpdatable, IScreenNavigator
     {
         public bool IsInitialized { get; }
         public InitializationState State { get; }
-        
+
         public bool IsVisible { get; }
         public float Opacity { get; }
 
         public IScreen ActiveScreen { get; }
         public IScreen PreviousScreen { get; }
-        
+
         public IScalarFlag IsEnabled { get; }
         public IScalarFlag IsInteractable { get; }
 
@@ -26,12 +26,12 @@ namespace UIFramework.Groups
         public event Action Entered;
         public event Action Exiting;
         public event Action Exited;
-        
+
         public event ScreenAction ScreenShowing;
         public event ScreenAction ScreenShown;
         public event ScreenAction ScreenHiding;
         public event ScreenAction ScreenHidden;
-        
+
         public void Initialize();
         public void Terminate();
 

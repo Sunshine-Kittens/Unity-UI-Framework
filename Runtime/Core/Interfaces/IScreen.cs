@@ -1,4 +1,4 @@
-using UIFramework.Controllers.Interfaces;
+using UIFramework.Navigation.Interfaces;
 
 namespace UIFramework.Core.Interfaces
 {
@@ -6,12 +6,12 @@ namespace UIFramework.Core.Interfaces
 
     public interface IReadOnlyScreen : IReadOnlyWindow
     {
-        public IScreenController Controller { get; }
+        public IScreenNavigator Navigator { get; }
     }
 
     public interface IScreen : IReadOnlyScreen, IWindow
     {
-        public void SetController(IScreenController controller);
-        public void ClearController();
+        public void SetNavigator(IScreenNavigator navigator);
+        public void ClearNavigator();
     }
 }

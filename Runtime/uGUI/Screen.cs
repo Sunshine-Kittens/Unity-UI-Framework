@@ -1,27 +1,26 @@
-﻿using System;
+using System;
 
-using UIFramework.Controllers.Interfaces;
 using UIFramework.Core.Interfaces;
+using UIFramework.Navigation.Interfaces;
 
 namespace UIFramework.UGUI
 {
     public class Screen : Window, IScreen
     {
-        public IScreenController Controller { get; private set; } = null;
-        
-        // IScreen
-        public void SetController(IScreenController controller)
+        public IScreenNavigator Navigator { get; private set; } = null;
+
+        public void SetNavigator(IScreenNavigator navigator)
         {
-            if (Controller != null)
-                throw new InvalidOperationException("Cannot set the controller while it is already set");
-            Controller = controller ?? throw new ArgumentNullException(nameof(controller));
+            if (Navigator != null)
+                throw new InvalidOperationException("Cannot set the navigator while it is already set.");
+            Navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         }
 
-        public void ClearController()
+        public void ClearNavigator()
         {
-            if (Controller == null)
-                throw new InvalidOperationException("Cannot clear the controller while it is not set");
-            Controller = null;
+            if (Navigator == null)
+                throw new InvalidOperationException("Cannot clear the navigator while it is not set.");
+            Navigator = null;
         }
     }
 }
