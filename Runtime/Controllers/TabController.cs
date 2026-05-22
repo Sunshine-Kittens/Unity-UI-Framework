@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
+using UIFramework.Controllers.Interfaces;
 using UIFramework.Coordinators;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
-using UIFramework.Navigation.Interfaces;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
 
@@ -12,7 +12,7 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public sealed class TabController<TWindow> : INavigateToRequestFactory<TWindow>, INavigateToIndexRequestFactory<TWindow> where TWindow : class, IWindow
+    public sealed class TabController<TWindow> : ITabController<TWindow> where TWindow : class, IWindow
     {
         public IWidgetRegistry<TWindow> Registry => _registry;
         public TWindow ActiveWindow => _navigator.ActiveInstance;
