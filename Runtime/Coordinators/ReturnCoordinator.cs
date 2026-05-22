@@ -6,6 +6,7 @@ using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
 using UIFramework.Navigation.History;
 using UIFramework.Navigation.Interfaces;
+using UIFramework.Registry;
 using UIFramework.Transitioning;
 
 using UnityEngine;
@@ -16,12 +17,15 @@ namespace UIFramework.Coordinators
         where TWindow : class, IWindow
     {
         private readonly WindowNavigator<TWindow> _navigator;
+        private readonly WidgetRegistry<TWindow> _registry;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
 
-        public ReturnCoordinator(WindowNavigator<TWindow> navigator, History history, TransitionManager transitionManager)
+        public ReturnCoordinator(WindowNavigator<TWindow> navigator, WidgetRegistry<TWindow> registry,
+            History history, TransitionManager transitionManager)
         {
             _navigator = navigator;
+            _registry = registry;
             _history = history;
             _transitionManager = transitionManager;
         }
@@ -29,7 +33,11 @@ namespace UIFramework.Coordinators
         public NavigateToResponse<TWindow> Return(CancellationToken cancellationToken = default)
         {
             if (_history.Count == 0)
-                return new NavigateToResponse<TWindow>(new NavigateToResult<TWindow>(false, _navigator.Active, null), null);
+            {
+                return new NavigateToResponse<TWindow>(
+                    new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
+                );   
+            }
 
             IHistoryEntry historyEntry = _history.Pop();
 
@@ -39,7 +47,14 @@ namespace UIFramework.Coordinators
             if (!historyEntry.TryGetEvent(out TransitionHistoryEvent transitionEvent))
                 throw new InvalidOperationException($"History entry {historyEntry.ID} is missing a TransitionHistoryEvent.");
 
-            NavigateToResult<TWindow> result = _navigator.SetActive(navEvent.WindowType);
+            if (!_registry.TryGet(navEvent.WindowType, out TWindow target))
+            {
+                return new NavigateToResponse<TWindow>(
+                    new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
+                );   
+            }
+
+            NavigateToResult<TWindow> result = _navigator.NavigateTo(target);
             if (!result.Success)
                 return new NavigateToResponse<TWindow>(result, null);
 

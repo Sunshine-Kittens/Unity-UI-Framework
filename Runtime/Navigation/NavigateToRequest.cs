@@ -208,7 +208,7 @@ namespace UIFramework.Navigation
         {
             if (!IsValid())
                 throw new InvalidOperationException("Unable to execute request, the request is no longer valid.");
-            return _coordinator.Navigate(in this);
+            return _coordinator.NavigateTo(in this);
         }
         
         private bool IsInstant()

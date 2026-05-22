@@ -12,13 +12,10 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public sealed class TabController<TWindow> :
-        INavigateToRequestFactory<TWindow>,
-        INavigateToIndexRequestFactory<TWindow>
-        where TWindow : class, IWindow
+    public sealed class TabController<TWindow> : INavigateToRequestFactory<TWindow>, INavigateToIndexRequestFactory<TWindow> where TWindow : class, IWindow
     {
         public IWidgetRegistry<TWindow> Registry => _registry;
-        public TWindow ActiveWindow => _navigator.Active;
+        public TWindow ActiveWindow => _navigator.ActiveInstance;
         public int ActiveIndex => _navigator.ActiveIndex;
         public bool IsInitialized => _registry.IsInitialized;
 
@@ -82,21 +79,21 @@ namespace UIFramework.Controllers
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.Active, window);
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, window);
         }
 
         public NavigateToRequest<TWindow> CreateNavigateToRequest<TTarget>() where TTarget : class, TWindow
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.Active, _registry.Get<TTarget>());
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get<TTarget>());
         }
 
         public NavigateToRequest<TWindow> CreateNavigateToRequest(int index)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.Active, _registry.Widgets[index]);
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Widgets[index]);
         }
 
         private void OnWindowShown(IWidget widget) => WindowShown?.Invoke(widget as IWindow);

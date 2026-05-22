@@ -17,11 +17,10 @@ namespace UIFramework.Coordinators
     {
         private readonly TimeMode _timeMode;
         private readonly WindowNavigator<TWindow> _navigator;
-        private readonly Core.History _history;
+        private readonly History _history;
         private readonly TransitionManager _transitionManager;
 
-        public NavigateToCoordinator(TimeMode timeMode, WindowNavigator<TWindow> navigator,
-            Core.History history, TransitionManager transitionManager)
+        public NavigateToCoordinator(TimeMode timeMode, WindowNavigator<TWindow> navigator, History history, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
             _navigator = navigator;
@@ -29,7 +28,7 @@ namespace UIFramework.Coordinators
             _transitionManager = transitionManager;
         }
 
-        public NavigateToResponse<TWindow> Navigate(in NavigateToRequest<TWindow> request)
+        public NavigateToResponse<TWindow> NavigateTo(in NavigateToRequest<TWindow> request)
         {
             NavigateToResult<TWindow> result = _navigator.NavigateTo(request.Window);
             if (!result.Success)
@@ -43,36 +42,33 @@ namespace UIFramework.Coordinators
             if (previous != null && _history != null)
             {
                 historyEntry = _history.PushNewEntry();
-                // Record where we came FROM so Return() can navigate back there.
                 historyEntry.Append(new NavigationHistoryEvent(previous.GetType()));
+                historyEntry.Append(new TransitionHistoryEvent(transition));
             }
 
             Awaitable awaitable = Execute(transition, active, previous, request.Data, request.CancellationToken);
 
             if (historyEntry != null)
-            {
-                historyEntry.Append(new TransitionHistoryEvent(transition));
                 _history.CommitEntry(historyEntry.ID);
-            }
 
             return new NavigateToResponse<TWindow>(result, awaitable);
         }
 
-        private Awaitable Execute(VisibilityTransitionParams transition, TWindow target, TWindow source,
-            object data, CancellationToken cancellationToken)
+        private Awaitable Execute(VisibilityTransitionParams transition, TWindow target, TWindow source, object data, CancellationToken cancellationToken)
         {
-            if (data != null) target.SetData(data);
+            if (data != null) 
+                target.SetData(data);
 
             if (source != null)
             {
-                bool hasAnimation = transition.Length > 0.0F &&
-                    (transition.EntryAnimationRef.IsValid || transition.ExitAnimationRef.IsValid);
-                return _transitionManager.Transition(
-                    hasAnimation ? transition : Transitioning.Transition.None(),
-                    source, target, cancellationToken);
+                bool hasTransition = transition.Length > 0.0F && (transition.EntryAnimationRef.IsValid || transition.ExitAnimationRef.IsValid);
+                if(!hasTransition)
+                    transition = Transition.None();
+                return _transitionManager.Transition(transition, source, target, cancellationToken);
             }
 
-            if (transition.Length > 0.0F && transition.EntryAnimationRef.IsValid)
+            bool hasAnimation = transition.Length > 0.0F && transition.EntryAnimationRef.IsValid;
+            if (hasAnimation)
             {
                 AnimationPlayable playable = transition.EntryAnimationRef
                     .Resolve(target, WidgetVisibility.Visible)
@@ -81,8 +77,8 @@ namespace UIFramework.Coordinators
                     .WithEasingMode(transition.EasingMode)
                     .WithTimeMode(_timeMode)
                     .Create();
-                return target.AnimateVisibility(WidgetVisibility.Visible, playable,
-                    InterruptBehavior.Immediate, cancellationToken);
+                
+                return target.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, cancellationToken);
             }
 
             target.SetVisibility(WidgetVisibility.Visible);

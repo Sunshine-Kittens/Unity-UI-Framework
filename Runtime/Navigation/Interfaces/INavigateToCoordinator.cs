@@ -4,6 +4,6 @@ namespace UIFramework.Navigation.Interfaces
 {
     public interface INavigateToCoordinator<TWindow> where TWindow : class, IWindow
     {
-        public NavigateToResponse<TWindow> Navigate(in NavigateToRequest<TWindow> request);
+        public NavigateToResponse<TWindow> NavigateTo(in NavigateToRequest<TWindow> request);
     }
 }

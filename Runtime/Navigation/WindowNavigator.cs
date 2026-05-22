@@ -13,7 +13,7 @@ namespace UIFramework.Navigation
     {
         public int Version { get; private set; }
 
-        public TWindow Active => _activeType != null ? _registry.Get(_activeType) : null;
+        public TWindow ActiveInstance => _activeType != null ? _registry.Get(_activeType) : null;
         public int ActiveIndex => _activeType != null ? _registry.IndexOf(_activeType) : -1;
         public Type ActiveType => _activeType;
 
@@ -31,23 +31,27 @@ namespace UIFramework.Navigation
         public NavigateToResult<TWindow> NavigateTo(TWindow target)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
-            return NavigateToInternal(target.GetType(), target);
-        }
 
-        public NavigateToResult<TWindow> NavigateTo(NavigationTarget<TWindow> target)
-        {
-            TWindow resolved = target.Resolve(_registry);
-            return NavigateToInternal(resolved.GetType(), resolved);
-        }
+            Type targetType = target.GetType();
 
-        // Used by ReturnCoordinator to restore a previous screen without going through history again.
-        public NavigateToResult<TWindow> SetActive(Type targetType)
-        {
-            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            if (!_registry.TryGet(targetType, out TWindow target))
-                return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, Active, null));
+            if (_activeType == targetType)
+            {
+                Debug.LogWarning($"Unable to navigate to {targetType.Name}: already active.");
+                return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, ActiveInstance, target));
+            }
 
-            TWindow previous = Active;
+            if (!_registry.TryGet(targetType, out TWindow cached))
+                throw new InvalidOperationException(
+                    $"Unable to navigate to {targetType.Name}: not found in registry.");
+
+            if (!cached.Equals(target))
+                throw new InvalidOperationException(
+                    $"Unable to navigate to {targetType.Name}: instance does not match the registered instance.");
+
+            if (!target.IsInitialized)
+                return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, ActiveInstance, target));
+
+            TWindow previous = ActiveInstance;
             _activeType = targetType;
             Version++;
             return InvokeNavigationUpdate(new NavigateToResult<TWindow>(true, previous, target));
@@ -58,36 +62,10 @@ namespace UIFramework.Navigation
             if (_activeType == null)
                 return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, null, null));
 
-            TWindow previous = Active;
+            TWindow previous = ActiveInstance;
             _activeType = null;
             Version++;
             return InvokeNavigationUpdate(new NavigateToResult<TWindow>(true, previous, null));
-        }
-
-        private NavigateToResult<TWindow> NavigateToInternal(Type targetType, TWindow target)
-        {
-            if (_activeType == targetType)
-            {
-                Debug.LogWarning($"Unable to navigate to {targetType.Name}: already active.");
-                return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, Active, target));
-            }
-
-            if (!_registry.TryGet(targetType, out TWindow cached))
-                throw new InvalidOperationException(
-                    $"Unable to navigate to {targetType.Name}: not found in registry.");
-
-            if (!cached.Equals(target))
-                throw new InvalidOperationException(
-                    $"Unable to navigate to {targetType.Name}: provided instance does not match the registered instance."
-                );
-
-            if (!target.IsInitialized)
-                return InvokeNavigationUpdate(new NavigateToResult<TWindow>(false, Active, target));
-
-            TWindow previous = Active;
-            _activeType = targetType;
-            Version++;
-            return InvokeNavigationUpdate(new NavigateToResult<TWindow>(true, previous, target));
         }
 
         private NavigateToResult<TWindow> InvokeNavigationUpdate(NavigateToResult<TWindow> result)

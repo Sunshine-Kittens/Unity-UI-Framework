@@ -35,7 +35,7 @@ namespace UIFramework.Groups
         public float Opacity => _opacity;
         private float _opacity = 1.0F;
 
-        public IScreen ActiveScreen => _navigator.Active;
+        public IScreen ActiveScreen => _navigator.ActiveInstance;
 
         public IScreen PreviousScreen
         {
@@ -150,7 +150,7 @@ namespace UIFramework.Groups
 
             _history = new History(_registry.Widgets.Count);
             _coordinator = new NavigateToCoordinator<IScreen>(_timeMode, _navigator, _history, _transitionManager);
-            _returnCoordinator = new ReturnCoordinator<IScreen>(_navigator, _history, _transitionManager);
+            _returnCoordinator = new ReturnCoordinator<IScreen>(_navigator, _registry, _history, _transitionManager);
 
             _navigator.OnNavigationUpdate += OnNavigationUpdate;
             _isEnabled.OnUpdate += OnIsEnabledUpdated;
@@ -193,14 +193,14 @@ namespace UIFramework.Groups
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("ScreenGroup is not initialized.");
-            return new NavigateToRequest<IScreen>(_navigator, _coordinator, _navigator.Active, screen);
+            return new NavigateToRequest<IScreen>(_navigator, _coordinator, _navigator.ActiveInstance, screen);
         }
 
         public NavigateToRequest<IScreen> CreateNavigateToRequest<TTarget>() where TTarget : class, IScreen
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("ScreenGroup is not initialized.");
-            return new NavigateToRequest<IScreen>(_navigator, _coordinator, _navigator.Active, _registry.Get<TTarget>());
+            return new NavigateToRequest<IScreen>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get<TTarget>());
         }
 
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)
