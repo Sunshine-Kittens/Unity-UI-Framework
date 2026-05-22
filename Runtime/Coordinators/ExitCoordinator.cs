@@ -1,6 +1,5 @@
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
-using UIFramework.Navigation.Context;
 using UIFramework.Navigation.Interfaces;
 using UIFramework.Transitioning;
 
@@ -9,66 +8,40 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Coordinators
 {
-    public class ExitCoordinator<TWindow, TContext> : IExitNavigator<TWindow, TContext> 
+    public class ExitCoordinator<TWindow> : IExitNavigator<TWindow>
         where TWindow : class, IWindow
-        where TContext : WindowContext<TWindow>
     {
         private readonly TimeMode _timeMode;
-        private readonly WindowNavigator<TWindow, TContext> _windowNavigator;
+        private readonly WindowNavigator<TWindow> _navigator;
         private readonly TransitionManager _transitionManager;
-        
-        public ExitCoordinator(TimeMode timeMode, WindowNavigator<TWindow, TContext> windowNavigator, TransitionManager transitionManager)
+
+        public ExitCoordinator(TimeMode timeMode, WindowNavigator<TWindow> navigator, TransitionManager transitionManager)
         {
             _timeMode = timeMode;
+            _navigator = navigator;
             _transitionManager = transitionManager;
-            _windowNavigator = windowNavigator;
         }
 
-        public NavigateToResponse<TWindow, TContext> Exit(in ExitRequest request)
+        public NavigateToResponse<TWindow> Exit(in ExitRequest request)
         {
-            NavigateToResult<TWindow, TContext> result = _windowNavigator.Clear();
+            NavigateToResult<TWindow> result = _navigator.Clear();
             Awaitable awaitable = null;
             if (result.Success)
             {
                 _transitionManager.Terminate();
-                IWindow window = result.Previous.Window;
-                AnimationPlayable playable = GetAnimationPlayable(in request, window, _timeMode);
+                TWindow window = result.Previous;
+                AnimationPlayable playable = request.GetAnimation(window, _timeMode);
                 if (playable.IsValid())
                 {
-                    awaitable = window.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate, request.CancellationToken);
+                    awaitable = window.AnimateVisibility(WidgetVisibility.Hidden, playable,
+                        InterruptBehavior.Immediate, request.CancellationToken);
                 }
                 else
                 {
                     window.SetVisibility(WidgetVisibility.Hidden);
                 }
-                 
             }
-            return new NavigateToResponse<TWindow, TContext>(result, awaitable);
-        }
-        
-        private bool IsRequestInstant(in ExitRequest request)
-        {
-            return (request.Length.HasValue && Mathf.Approximately(request.Length.Value, 0.0F)) || (!request.Length.HasValue && !request.Animation.IsValid);
-        }
-        
-        private AnimationPlayable GetAnimationPlayable(in ExitRequest request, IWindow window, TimeMode timeMode)
-        {
-            if (IsRequestInstant(request)) return default;
-            
-            IAnimation animation = request.Animation.IsValid ?
-                request.Animation.Resolve(window, WidgetVisibility.Hidden) : 
-                window.GetDefaultAnimation(WidgetVisibility.Hidden);
-
-            if (animation == null) return default;
-            
-            float length = request.Length.GetValueOrDefault(animation.Length);
-            EasingMode easingMode = request.EasingMode.GetValueOrDefault(UnityEngine.Extension.EasingMode.Linear);
-            
-            return animation.ToPlayable()
-                .WithLength(length)
-                .WithEasingMode(easingMode)
-                .WithTimeMode(timeMode)
-                .Create();
+            return new NavigateToResponse<TWindow>(result, awaitable);
         }
     }
 }

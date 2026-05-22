@@ -44,6 +44,8 @@ namespace UIFramework.Registry
         {
             _onInitialize = onInitialize;
             _onTerminate = onTerminate;
+            _widgets = new List<TWidget>();
+            _widgetMap = new Dictionary<Type, TWidget>();
         }
         
         public void Collect(IEnumerable<IWidgetCollector<TWidget>> collectors)

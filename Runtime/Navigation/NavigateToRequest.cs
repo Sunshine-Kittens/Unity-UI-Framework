@@ -15,7 +15,7 @@ namespace UIFramework.Navigation
         where TWindow : class, IWindow
     {
         private readonly INavigationVersion _navigationVersion;
-        private readonly INavigateToRequestProcessor<TWindow> _processor;
+        private readonly INavigateToCoordinator<TWindow> _coordinator;
         private readonly TWindow _sourceWindow;
         private readonly TWindow _targetWindow;
 
@@ -44,12 +44,12 @@ namespace UIFramework.Navigation
             CancellationToken = 1 << 5
         }
 
-        internal NavigateToRequest(INavigationVersion navigationVersion, INavigateToRequestProcessor<TWindow> processor, TWindow sourceWindow, 
+        internal NavigateToRequest(INavigationVersion navigationVersion, INavigateToCoordinator<TWindow> coordinator, TWindow sourceWindow, 
             TWindow targetWindow)
         {
             _navigationVersion = navigationVersion;
             _version = navigationVersion.Version;
-            _processor = processor;
+            _coordinator = coordinator;
             
             _sourceWindow = sourceWindow;
             _targetWindow = targetWindow;
@@ -63,13 +63,13 @@ namespace UIFramework.Navigation
             _flags = BuilderFlags.None;
         }
         
-        private NavigateToRequest(INavigationVersion navigationVersion, int version, INavigateToRequestProcessor<TWindow> processor, TWindow sourceWindow, 
+        private NavigateToRequest(INavigationVersion navigationVersion, int version, INavigateToCoordinator<TWindow> coordinator, TWindow sourceWindow, 
             TWindow targetWindow, object data, WidgetAnimationRef animation, float length, EasingMode easingMode, VisibilityTransitionParams? transitionParams, 
             CancellationToken cancellationToken, BuilderFlags flags)
         {
             _navigationVersion = navigationVersion;
             _version = version;
-            _processor = processor;
+            _coordinator = coordinator;
             
             _sourceWindow = sourceWindow;
             _targetWindow = targetWindow;
@@ -93,7 +93,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 data,
@@ -113,7 +113,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 Data,
@@ -133,7 +133,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 Data,
@@ -153,7 +153,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 Data,
@@ -173,7 +173,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 Data,
@@ -191,7 +191,7 @@ namespace UIFramework.Navigation
             return new NavigateToRequest<TWindow>(
                 _navigationVersion,
                 _version,
-                _processor,
+                _coordinator,
                 _sourceWindow,
                 _targetWindow,
                 Data,
@@ -208,7 +208,7 @@ namespace UIFramework.Navigation
         {
             if (!IsValid())
                 throw new InvalidOperationException("Unable to execute request, the request is no longer valid.");
-            return _processor.ProcessNavigateToRequest(in this);
+            return _coordinator.Navigate(in this);
         }
         
         private bool IsInstant()
@@ -233,7 +233,8 @@ namespace UIFramework.Navigation
             if (exitAnimation == null && entryAnimation == null)
                 return Transitioning.Transition.None();
             
-            float length = _flags.HasFlag(BuilderFlags.Length) ? _length : entryAnimation.Length;
+            float length = _flags.HasFlag(BuilderFlags.Length) ? _length :
+                (entryAnimation?.Length ?? exitAnimation?.Length ?? 0.0f);
             EasingMode easingMode = _flags.HasFlag(BuilderFlags.EasingMode) ? _easingMode : EasingMode.Linear;
             
             return Transitioning.Transition.Custom(length, easingMode, exitAnimation, entryAnimation, TransitionSortPriority.Target);

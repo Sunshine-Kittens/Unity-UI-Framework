@@ -1,9 +1,18 @@
 using UIFramework.Core.Interfaces;
-using UIFramework.Navigation.Base;
-using UIFramework.Navigation.Context;
 
 namespace UIFramework.Navigation
 {
-    public sealed class NavigateToResult<TWindow> : NavigateToResultBase<TWindow, WindowContext<TWindow>>
-        where TWindow : class, IWindow { }
+    public readonly struct NavigateToResult<TWindow> where TWindow : class, IWindow
+    {
+        public readonly bool Success;
+        public readonly TWindow Previous;
+        public readonly TWindow Active;
+
+        public NavigateToResult(bool success, TWindow previous, TWindow active)
+        {
+            Success = success;
+            Previous = previous;
+            Active = active;
+        }
+    }
 }
