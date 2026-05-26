@@ -9,6 +9,9 @@ namespace UIFramework
 {
     internal static class UIExtensions
     {
+        [ThreadStatic]
+        private static Stack<VisualElement> _hierarchyStack;
+
         // Generic
         public static Color GetContrastingColor(in Color color)
         {
@@ -24,18 +27,26 @@ namespace UIFramework
 
         public static void IterateHierarchy(this VisualElement visualElement, Action<VisualElement> action)
         {
-            Stack<VisualElement> stack = new Stack<VisualElement>();
-            stack.Push(visualElement);
+            if (_hierarchyStack == null)
+                _hierarchyStack = new Stack<VisualElement>();
 
-            while (stack.Count > 0)
+            _hierarchyStack.Push(visualElement);
+            try
             {
-                VisualElement currentElement = stack.Pop();                
-                for (int i = 0; i < currentElement.hierarchy.childCount; i++)
+                while (_hierarchyStack.Count > 0)
                 {
-                    VisualElement child = currentElement.hierarchy.ElementAt(i);
-                    stack.Push(child);
-                    action.Invoke(child);
+                    VisualElement currentElement = _hierarchyStack.Pop();
+                    for (int i = 0; i < currentElement.hierarchy.childCount; i++)
+                    {
+                        VisualElement child = currentElement.hierarchy.ElementAt(i);
+                        _hierarchyStack.Push(child);
+                        action.Invoke(child);
+                    }
                 }
+            }
+            finally
+            {
+                _hierarchyStack.Clear();
             }
         }
 

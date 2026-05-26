@@ -61,7 +61,7 @@ namespace UIFramework.Transitioning
 
             public AnimationPlayable CreateSourcePlayable()
             {
-                return CreatePlayable(Target, WidgetVisibility.Hidden, Transition.ExitAnimationRef, Transition.Length,
+                return CreatePlayable(Source, WidgetVisibility.Hidden, Transition.ExitAnimationRef, Transition.Length,
                     Transition.EasingMode);
             }
 
@@ -105,14 +105,27 @@ namespace UIFramework.Transitioning
 
         private sealed class Entry
         {
-            public readonly Params Params;
-            public readonly CancellationTokenSource Cts;
+            private static readonly Stack<Entry> _pool = new();
+
+            public static Entry Get(in Params @params, CancellationTokenSource cts)
+            {
+                Entry entry = _pool.Count > 0 ? _pool.Pop() : new Entry();
+                entry.Params = @params;
+                entry.Cts = cts;
+                entry.Skip = false;
+                return entry;
+            }
+
+            public Params Params { get; private set; }
+            public CancellationTokenSource Cts { get; private set; }
             public bool Skip { get; set; }
 
-            public Entry(Params @params, CancellationTokenSource cts)
+            private Entry() { }
+
+            public void Release()
             {
-                Params = @params;
-                Cts = cts;
+                Cts = null;
+                _pool.Push(this);
             }
         }
         
@@ -122,6 +135,7 @@ namespace UIFramework.Transitioning
 
         private Entry _active = null;
         private readonly List<Entry> _pending = new();
+        private readonly HashSet<Entry> _pendingSet = new();
 
         private bool _skipAll = false;
         
@@ -148,12 +162,15 @@ namespace UIFramework.Transitioning
             }
 
             Params @params = new Params(transition, sourceWidget, targetWidget, _timeMode);
-            CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            Entry entry = new Entry(@params, linkedCts);
+            CancellationTokenSource linkedCts = cancellationToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                : new CancellationTokenSource();
+            Entry entry = Entry.Get(in @params, linkedCts);
             if(_skipAll)
                 entry.Skip = true;
             _pending.Add(entry);
-            
+            _pendingSet.Add(entry);
+
             CancellationToken token = linkedCts.Token;
             try
             {
@@ -167,6 +184,7 @@ namespace UIFramework.Transitioning
                     if (_active == null && _pending.Count > 0 && ReferenceEquals(_pending[0], entry))
                     {
                         _pending.RemoveAt(0);
+                        _pendingSet.Remove(entry);
                         _active = entry;
                         break;
                     }
@@ -206,6 +224,7 @@ namespace UIFramework.Transitioning
                     RemovePending(entry);
                 }
                 linkedCts.Dispose();
+                entry.Release();
             }
         }
         
@@ -269,27 +288,35 @@ namespace UIFramework.Transitioning
             Params rewindParams = _active.Params.CreateInverted();
             CancelAllPending();
             _active.Cts.Cancel();
-            
+
             CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _active = new Entry(rewindParams, linkedCts);
+            Entry rewindEntry = Entry.Get(in rewindParams, linkedCts);
+            _active = rewindEntry;
 
             CancellationToken token = linkedCts.Token;
-            switch (rewindParams.Transition.Target)
+            try
             {
-                case TransitionTarget.Both:
-                    await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token), 
-                        rewindParams.Target.RewindAnimation(token));
-                    break;
-                case TransitionTarget.Target:
-                    await WhenAll.Await(token, rewindParams.Target.RewindAnimation(token));
-                    break;
-                case TransitionTarget.Source:
-                    await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token));
-                    break;
+                switch (rewindParams.Transition.Target)
+                {
+                    case TransitionTarget.Both:
+                        await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token),
+                            rewindParams.Target.RewindAnimation(token));
+                        break;
+                    case TransitionTarget.Target:
+                        await WhenAll.Await(token, rewindParams.Target.RewindAnimation(token));
+                        break;
+                    case TransitionTarget.Source:
+                        await WhenAll.Await(token, rewindParams.Source.RewindAnimation(token));
+                        break;
+                }
             }
-
-            _active = null;
-            PromoteNextIfAny();
+            finally
+            {
+                linkedCts.Dispose();
+                rewindEntry.Release();
+                _active = null;
+                PromoteNextIfAny();
+            }
         }
 
         private async Awaitable ExecuteTransition(Params transitionParams, CancellationToken cancellationToken)
@@ -384,14 +411,17 @@ namespace UIFramework.Transitioning
 
         private bool IsPending(Entry entry)
         {
-            return _pending.Contains(entry);
+            return _pendingSet.Contains(entry);
         }
 
         private void RemovePending(Entry entry)
         {
             int index = _pending.IndexOf(entry);
             if (index >= 0)
+            {
                 _pending.RemoveAt(index);
+                _pendingSet.Remove(entry);
+            }
         }
 
         private void CancelAllPending()
@@ -399,6 +429,7 @@ namespace UIFramework.Transitioning
             foreach (Entry t in _pending)
                 t.Cts.Cancel();
             _pending.Clear();
+            _pendingSet.Clear();
         }
 
         private void CancelPendingAfter(Entry entry)
@@ -411,6 +442,7 @@ namespace UIFramework.Transitioning
             {
                 Entry pendingEntry = _pending[i];
                 _pending.RemoveAt(i);
+                _pendingSet.Remove(pendingEntry);
                 pendingEntry.Cts.Cancel();
             }
         }
@@ -422,6 +454,7 @@ namespace UIFramework.Transitioning
 
             Entry next = _pending[0];
             _pending.RemoveAt(0);
+            _pendingSet.Remove(next);
             _active = next;
         }
         

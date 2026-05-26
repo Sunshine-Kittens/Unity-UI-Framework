@@ -14,25 +14,46 @@ namespace UIFramework.Core
     {
         private sealed class VisibilityAnimationHandle
         {
+            private static readonly Stack<VisibilityAnimationHandle> _pool = new();
+
+            public static VisibilityAnimationHandle Get(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
+            {
+                VisibilityAnimationHandle handle = _pool.Count > 0 ? _pool.Pop() : new VisibilityAnimationHandle();
+                handle.Initialize(animationPlayer, cancellationToken);
+                return handle;
+            }
+
             public AnimationPlayer.PlaybackData PlaybackData => _animationPlayer.Data;
             public Awaitable AnimationAwaitable => _animationCompletionSource.Awaitable;
             public Awaitable CompletedAwaitable => _completedCompletionSource.Awaitable;
 
             private readonly AwaitableCompletionSource _animationCompletionSource = new();
             private readonly AwaitableCompletionSource _completedCompletionSource = new();
-            private AnimationPlayer _animationPlayer = null;
-            private bool _isCanceled = false;
-            private bool _isComplete = false;
+            private AnimationPlayer _animationPlayer;
+            private CancellationTokenRegistration _cancellationRegistration;
+            private bool _isCanceled;
+            private bool _isComplete;
 
             public bool IsComplete => _isComplete || _isCanceled;
 
             private VisibilityAnimationHandle() { }
 
-            public VisibilityAnimationHandle(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
+            private void Initialize(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
             {
                 _animationPlayer = animationPlayer ?? throw new ArgumentNullException(nameof(animationPlayer));
+                _isCanceled = false;
+                _isComplete = false;
+                _animationCompletionSource.Reset();
+                _completedCompletionSource.Reset();
                 _animationPlayer.OnComplete += OnAnimationComplete;
-                cancellationToken.Register(CancelCompletionSource);
+                _cancellationRegistration = cancellationToken.Register(CancelCompletionSource);
+            }
+
+            public void Release()
+            {
+                _cancellationRegistration.Dispose();
+                _cancellationRegistration = default;
+                _pool.Push(this);
             }
 
             private void CancelCompletionSource()
@@ -50,6 +71,7 @@ namespace UIFramework.Core
             {
                 if (_animationPlayer != null)
                 {
+                    _animationPlayer.OnComplete -= OnAnimationComplete;
                     if (_animationPlayer.IsPlaying)
                     {
                         _animationPlayer.Stop();
@@ -71,6 +93,7 @@ namespace UIFramework.Core
             {
                 if (_animationPlayer != null)
                 {
+                    _animationPlayer.OnComplete -= OnAnimationComplete;
                     if (_animationPlayer.IsPlaying)
                     {
                         _animationPlayer.Complete();
@@ -172,9 +195,7 @@ namespace UIFramework.Core
             Visibility = WidgetVisibility.Hidden;
             ResetAnimatedProperties();
             _isEnabled.Reset(true);
-            _isEnabled.OnUpdate -= OnIsEnabledUpdated;
             IsInteractableInternal.Reset(true);
-            IsInteractableInternal.OnUpdate -= OnIsInteractableUpdated;
             State = WidgetState.Terminated;
             OnTerminate();
             Terminated?.Invoke(this);
@@ -255,7 +276,9 @@ namespace UIFramework.Core
             if (IsAnimating && interruptBehavior == InterruptBehavior.Ignore) throw new OperationCanceledException();
 
             VisibilityAnimationHandle handle = null;
-            CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            CancellationTokenSource cts = cancellationToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                : new CancellationTokenSource();
 
             if (IsAnimating)
             {
@@ -275,7 +298,7 @@ namespace UIFramework.Core
                 {
                     AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
                     animationPlayer.Rewind();
-                    handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
+                    handle = VisibilityAnimationHandle.Get(animationPlayer, cts.Token);
                 }
             }
             else
@@ -286,7 +309,7 @@ namespace UIFramework.Core
             if (handle == null)
             {
                 AnimationPlayer animationPlayer = AnimationPlayer.PlayAnimation(playable.Animation, playable.StartTime, playable.PlaybackMode, playable.EasingMode, playable.TimeMode, playable.PlaybackSpeed);
-                handle = new VisibilityAnimationHandle(animationPlayer, cts.Token);
+                handle = VisibilityAnimationHandle.Get(animationPlayer, cts.Token);
             }
             _animationCts = cts;
             _animationHandle = handle;
@@ -311,7 +334,7 @@ namespace UIFramework.Core
             }
             catch (OperationCanceledException)
             {
-                handle.Cancel();
+                CompleteAnimationHandle(handle);
                 throw;
             }
 
@@ -328,7 +351,7 @@ namespace UIFramework.Core
                 Hidden?.Invoke(this);
                 OnHidden();
             }
-            handle.Complete();
+            CompleteAnimationHandle(handle);
         }
         
         public abstract IAnimation GetDefaultAnimation(WidgetVisibility visibility);
@@ -348,7 +371,8 @@ namespace UIFramework.Core
         {
             if (IsAnimating)
             {
-                await AnimateVisibility(Visibility ^ (WidgetVisibility)1, default(AnimationPlayable), InterruptBehavior.Rewind, cancellationToken);
+                WidgetVisibility inverse = Visibility == WidgetVisibility.Visible ? WidgetVisibility.Hidden : WidgetVisibility.Visible;
+                await AnimateVisibility(inverse, default(AnimationPlayable), InterruptBehavior.Rewind, cancellationToken);
             }
         }
 
@@ -441,6 +465,14 @@ namespace UIFramework.Core
             {
                 _children.Remove(child);
             }
+        }
+
+        private void CompleteAnimationHandle(VisibilityAnimationHandle handle)
+        {
+            handle.Complete();
+            if(handle == _animationHandle)
+                _animationHandle = null;
+            handle.Release();
         }
     }
 }
