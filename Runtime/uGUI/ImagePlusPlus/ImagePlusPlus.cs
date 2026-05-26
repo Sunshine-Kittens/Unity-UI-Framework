@@ -307,42 +307,12 @@ namespace UIFramework.UGUI
 
         private float GetAdjustedRadius(ref float radius, float max)
         {
-#if UNITY_EDITOR
-            if (!EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                //radius = Mathf.Clamp(radius, 0.0F, max);
-                float temp = Mathf.Clamp(radius, 0.0F, max);
-                return temp;
-            }
-            else
-            {
-                float temp = Mathf.Clamp(radius, 0.0F, max);
-                return temp;
-            }
-#else
-        float temp = Mathf.Clamp(radius, 0.0F, max);
-        return temp;
-#endif
+            return Mathf.Clamp(radius, 0.0F, max);
         }
 
         private Vector4 GetAdjustedRadii(ref Vector4 radii, float max)
         {
-#if UNITY_EDITOR
-            if (!EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                Vector4 temp = ClampVector4(radii, 0.0F, max);
-                //radii = ClampVector4(radii, 0.0F, max);
-                return radii;
-            }
-            else
-            {
-                Vector4 temp = ClampVector4(radii, 0.0F, max);
-                return temp;
-            }
-#else
-        Vector4 temp = ClampVector4(radii, 0.0F, max);
-        return temp;
-#endif
+            return ClampVector4(radii, 0.0F, max);
         }
     }
 }

@@ -225,7 +225,7 @@ namespace UIFramework.Navigation
             if (_flags.HasFlag(BuilderFlags.Transition) && _transitionParams.HasValue)
                 return _transitionParams.Value;
 
-            IAnimation exitAnimation = _sourceWindow.GetDefaultAnimation(WidgetVisibility.Hidden);
+            IAnimation exitAnimation = _sourceWindow?.GetDefaultAnimation(WidgetVisibility.Hidden);
             IAnimation entryAnimation = _flags.HasFlag(BuilderFlags.Animation) ?
                 _animationRef.Resolve(_targetWindow, WidgetVisibility.Visible) : 
                 _targetWindow.GetDefaultAnimation(WidgetVisibility.Visible);

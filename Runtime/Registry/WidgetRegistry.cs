@@ -169,7 +169,7 @@ namespace UIFramework.Registry
         
         public bool TryGet<TWidgetType>(out TWidgetType widget) where TWidgetType : class, TWidget
         {
-            if (TryGet(typeof(TWidget), out TWidget w))
+            if (TryGet(typeof(TWidgetType), out TWidget w))
             {
                 widget = w as TWidgetType;
                 return true;    
@@ -180,7 +180,7 @@ namespace UIFramework.Registry
 
         public bool TryGet<TWidgetType>(out TWidgetType widget, out int index) where TWidgetType : class, TWidget
         {
-            if (TryGet(typeof(TWidget), out TWidget w))
+            if (TryGet(typeof(TWidgetType), out TWidget w))
             {
                 widget = w as TWidgetType;
                 index = _widgets.IndexOf(widget);

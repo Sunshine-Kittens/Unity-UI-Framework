@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 
 using UIFramework.Core;
@@ -56,8 +57,12 @@ namespace UIFramework.Coordinators
 
         private Awaitable Execute(VisibilityTransitionParams transition, TWindow target, TWindow source, object data, CancellationToken cancellationToken)
         {
-            if (data != null) 
+            if (data != null)
+            {
+                if (!target.IsValidData(data))
+                    throw new ArgumentException($"{target.GetType().Name} does not accept data of type {data.GetType().Name}.");
                 target.SetData(data);
+            }
 
             if (source != null)
             {
