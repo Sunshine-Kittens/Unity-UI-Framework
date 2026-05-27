@@ -34,11 +34,12 @@ namespace UIFramework
         [SerializeField] protected ScreenCollectorComponent[] ScreenCollectors = null;
 
         public event Action Opened = default;
-        public event Action Closed = default;
+        public event Action Closed = default;   
 
         public event Action<IReadOnlyScreen> ScreenOpened = default;
         public event Action<IReadOnlyScreen> ScreenClosed = default;
 
+        private readonly Dictionary<string, IScreen> _screenIdentifierMap = new();
         private WindowNavigation<IScreen> _navigation = null;
         private WindowTransitionManager _transitionManager = null;
         private History<TransitionAnimationParams> _transitionHistory = new History<TransitionAnimationParams>(16);
@@ -54,6 +55,8 @@ namespace UIFramework
             }
         }
 
+        public IReadOnlyDictionary<Type, IScreen> Screens => _navigation.Windows;
+        
         // Unity Messages
 #if UNITY_EDITOR
         protected virtual void OnValidate()
@@ -162,18 +165,22 @@ namespace UIFramework
                 screenList.AddRange(ScreenCollectors[i].Collect());
             }
 
+            _screenIdentifierMap.Clear();
             _screens = screenList.ToArray();
             Dictionary<Type, IScreen> screenDictionary = new Dictionary<Type, IScreen>();
             for (int i = 0; i < _screens.Length; i++)
             {
-                Type type = _screens[i].GetType();
+                IScreen screen = _screens[i];
+                Type type = screen.GetType();
                 if (!screenDictionary.ContainsKey(type))
                 {
                     screenDictionary.Add(type, _screens[i]);
-                    _screens[i].Opening += OnScreenOpen;
-                    _screens[i].Closing += OnScreenClose;
-                    _screens[i].Initialize(this);
-                    _screens[i].Close();
+                    screen.Opening += OnScreenOpen;
+                    screen.Closing += OnScreenClose;
+                    screen.Initialize(this);
+                    screen.Close();
+                    if (!string.IsNullOrWhiteSpace(screen.Identifier))
+                        _screenIdentifierMap.Add(screen.Identifier, screen);
                 }
                 else
                 {
@@ -181,7 +188,7 @@ namespace UIFramework
                         "please ensure all instances are of a unique type.");
                 }
             }
-
+            
             _navigation = new WindowNavigation<IScreen>(screenDictionary);
             _navigation.OnNavigationUpdate += OnNavigationUpdate;
 
@@ -237,9 +244,18 @@ namespace UIFramework
 
         public abstract void SetWaiting(bool waiting);
 
-        public IReadOnlyScreen OpenScreen<ScreenType>(float animationLength = 0.0F, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        public bool ContainsScreen(string identifier)
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            return _screenIdentifierMap.ContainsKey(identifier);
+        }
+        
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, float animationLength = 0.0F, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
                 AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
@@ -248,7 +264,124 @@ namespace UIFramework
                 TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(animationLength, EasingMode.EaseInOut,
                             sourceWindowAnimation, targetWindowAnimation, TransitionAnimationParams.SortPriority.Target);
 
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                return true;
+            }
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, object data, float animationLength = 0.0F, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
+                AccessAnimation targetWindowAnimation = navigationEvent.ActiveWindow.GetDefaultAccessAnimation();
+
+                TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(animationLength, EasingMode.EaseInOut,
+                            sourceWindowAnimation, targetWindowAnimation, TransitionAnimationParams.SortPriority.Target);
+
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return true;
+            }
+            navigationEvent.ActiveWindow.SetData(data);
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
+
+                TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
+                            sourceWindowAnimation, accessPlayable.ImplicitAnimation, TransitionAnimationParams.SortPriority.Target);
+
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                return true;
+            }
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, object data, in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
+
+                TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
+                            sourceWindowAnimation, accessPlayable.ImplicitAnimation, TransitionAnimationParams.SortPriority.Target);
+
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return true;
+            }
+            navigationEvent.ActiveWindow.SetData(data);
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, in TransitionAnimationParams transitionPlayable, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                return true;
+            }
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+
+        public bool TryOpenScreen(string identifier, out IReadOnlyScreen screen, object data, in TransitionAnimationParams transitionPlayable, bool excludeCurrentFromHistory = false)
+        {
+            screen = null;
+            if (!_screenIdentifierMap.TryGetValue(identifier, out IScreen targetScreen))
+                return false;
+            
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel(targetScreen, excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                screen = OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return true;
+            }
+            navigationEvent.ActiveWindow.SetData(data);
+            screen = navigationEvent.ActiveWindow;
+            return true;
+        }
+        
+        public IReadOnlyScreen OpenScreen<ScreenType>(float animationLength = 0.0F, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
+        {
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
+            if (navigationEvent.Success)
+            {
+                AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
+                AccessAnimation targetWindowAnimation = navigationEvent.ActiveWindow.GetDefaultAccessAnimation();
+
+                TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(animationLength, EasingMode.EaseInOut,
+                            sourceWindowAnimation, targetWindowAnimation, TransitionAnimationParams.SortPriority.Target);
+
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
             }
             else
             {
@@ -258,7 +391,7 @@ namespace UIFramework
 
         public IReadOnlyScreen OpenScreen<ScreenType>(object data, float animationLength = 0.0F, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
                 AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
@@ -267,7 +400,7 @@ namespace UIFramework
                 TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(animationLength, EasingMode.EaseInOut,
                             sourceWindowAnimation, targetWindowAnimation, TransitionAnimationParams.SortPriority.Target);
 
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
             }
             else
             {
@@ -278,7 +411,7 @@ namespace UIFramework
 
         public IReadOnlyScreen OpenScreen<ScreenType>(in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
                 AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
@@ -286,7 +419,7 @@ namespace UIFramework
                 TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
                             sourceWindowAnimation, accessPlayable.ImplicitAnimation, TransitionAnimationParams.SortPriority.Target);
 
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
             }
             else
             {
@@ -296,7 +429,7 @@ namespace UIFramework
 
         public IReadOnlyScreen OpenScreen<ScreenType>(object data, in AccessAnimationParams accessPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
                 AccessAnimation sourceWindowAnimation = navigationEvent.PreviousActiveWindow != null ? navigationEvent.PreviousActiveWindow.GetDefaultAccessAnimation() : null;
@@ -304,7 +437,7 @@ namespace UIFramework
                 TransitionAnimationParams transitionPlayable = TransitionAnimationParams.Custom(accessPlayable.Length, accessPlayable.EasingMode,
                             sourceWindowAnimation, accessPlayable.ImplicitAnimation, TransitionAnimationParams.SortPriority.Target);
 
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
             }
             else
             {
@@ -315,10 +448,10 @@ namespace UIFramework
 
         public IReadOnlyScreen OpenScreen<ScreenType>(in TransitionAnimationParams transitionPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, excludeCurrentFromHistory);
             }
             else
             {
@@ -328,10 +461,10 @@ namespace UIFramework
 
         public IReadOnlyScreen OpenScreen<ScreenType>(object data, in TransitionAnimationParams transitionPlayable, bool excludeCurrentFromHistory = false) where ScreenType : IScreen
         {
-            WindowNavigationEvent<IScreen> navigationEvent = NavigateToScreen<ScreenType>(excludeCurrentFromHistory);
+            WindowNavigationEvent<IScreen> navigationEvent = _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
             if (navigationEvent.Success)
             {
-                return OpenScreenInternal<ScreenType>(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
+                return OpenScreenInternal(in transitionPlayable, navigationEvent.ActiveWindow, navigationEvent.PreviousActiveWindow, data, excludeCurrentFromHistory);
             }
             else
             {
@@ -339,26 +472,14 @@ namespace UIFramework
                 return navigationEvent.ActiveWindow;
             }
         }
-
-        private IReadOnlyScreen OpenScreenInternal<ScreenType>(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, bool excludeCurrentFromHistory) where ScreenType : IScreen
-        {
-            OpenScreenInternal(in transitionPlayable, targetScreen, sourceScreen, data, excludeCurrentFromHistory);
-            return targetScreen;
-        }
-
-        private IReadOnlyScreen OpenScreenInternal<ScreenType>(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, bool excludeCurrentFromHistory) where ScreenType : IScreen
-        {
-            OpenScreenInternal(in transitionPlayable, targetScreen, sourceScreen, excludeCurrentFromHistory);
-            return targetScreen;
-        }
-
-        private void OpenScreenInternal(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, bool excludeCurrentFromHistory)
+        
+        private IReadOnlyScreen OpenScreenInternal(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, object data, bool excludeCurrentFromHistory)
         {
             targetScreen.SetData(data);
-            OpenScreenInternal(in transitionPlayable, targetScreen, sourceScreen, excludeCurrentFromHistory);
+            return OpenScreenInternal(in transitionPlayable, targetScreen, sourceScreen, excludeCurrentFromHistory);
         }
 
-        private void OpenScreenInternal(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, bool excludeCurrentFromHistory)
+        private IReadOnlyScreen OpenScreenInternal(in TransitionAnimationParams transitionPlayable, IScreen targetScreen, IScreen sourceScreen, bool excludeCurrentFromHistory)
         {
             if (sourceScreen != null)
             {
@@ -394,11 +515,7 @@ namespace UIFramework
             {
                 OpenInternal(transitionPlayable.Length);
             }
-        }
-
-        private WindowNavigationEvent<IScreen> NavigateToScreen<ScreenType>(bool excludeCurrentFromHistory) where ScreenType : IScreen
-        {
-            return _navigation.Travel<ScreenType>(excludeCurrentFromHistory);
+            return targetScreen;
         }
 
         private void OpenInternal(float animationLength)
