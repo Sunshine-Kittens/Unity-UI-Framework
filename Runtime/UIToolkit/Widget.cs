@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 using UIFramework.Animation;
 using UIFramework.Core;
@@ -228,13 +227,7 @@ namespace UIFramework.UIToolkit
         {
             PickingMode pickingMode = interactable ? PickingMode.Position : PickingMode.Ignore;
             SetInteractablePickingMode(visualElement, pickingMode);
-
-            void SetInteractableChild(VisualElement child)
-            {
-                SetInteractablePickingMode(child, pickingMode);
-            }
-
-            visualElement.IterateHierarchy(SetInteractableChild);
+            visualElement.IterateHierarchy(static (child, mode) => SetInteractablePickingMode(child, mode), pickingMode);
         }
         
         private static void SetInteractablePickingMode(VisualElement visualElement, PickingMode pickingMode)

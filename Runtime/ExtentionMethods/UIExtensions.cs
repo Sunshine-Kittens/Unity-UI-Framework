@@ -50,6 +50,31 @@ namespace UIFramework
             }
         }
 
+        public static void IterateHierarchy<TState>(this VisualElement visualElement, Action<VisualElement, TState> action, TState state)
+        {
+            if (_hierarchyStack == null)
+                _hierarchyStack = new Stack<VisualElement>();
+
+            _hierarchyStack.Push(visualElement);
+            try
+            {
+                while (_hierarchyStack.Count > 0)
+                {
+                    VisualElement currentElement = _hierarchyStack.Pop();
+                    for (int i = 0; i < currentElement.hierarchy.childCount; i++)
+                    {
+                        VisualElement child = currentElement.hierarchy.ElementAt(i);
+                        _hierarchyStack.Push(child);
+                        action.Invoke(child, state);
+                    }
+                }
+            }
+            finally
+            {
+                _hierarchyStack.Clear();
+            }
+        }
+
         // UGUI
         public static void FocusVertically(this ScrollRect instance, RectTransform target)
         {
