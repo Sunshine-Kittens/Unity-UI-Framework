@@ -23,6 +23,7 @@ namespace UIFramework.UGUI
 
         public string State { get; private set; } = ButtonState.DefaultStateName;
 
+        private Animator _animator;
         private Dictionary<string, int> _stateMap = null;
         private int _stateIndex = -1;
         private SelectionState _selectionState = SelectionState.Normal;
@@ -83,6 +84,19 @@ namespace UIFramework.UGUI
                 else
                 {
                     return _animationTriggers;
+                }
+            }
+        }
+
+        private void Awake()
+        {
+            _animator = GetComponent<Animator>();
+            _stateMap = new Dictionary<string, int>();
+            if (_states != null)
+            {
+                for (int i = 0; i < _states.Length; i++)
+                {
+                    _stateMap.Add(_states[i].Name, i);
                 }
             }
         }
@@ -191,25 +205,24 @@ namespace UIFramework.UGUI
         {
             if(_transition == Selectable.Transition.Animation)
             {
-                Animator animator = GetComponent<Animator>();
-                if (animator != null && animator.isActiveAndEnabled && animator.hasBoundPlayables && !string.IsNullOrEmpty(triggername))
+                if (_animator != null && _animator.isActiveAndEnabled && _animator.hasBoundPlayables && !string.IsNullOrEmpty(triggername))
                 {
-                    animator.ResetTrigger(_animationTriggers.normalTrigger);
-                    animator.ResetTrigger(_animationTriggers.highlightedTrigger);
-                    animator.ResetTrigger(_animationTriggers.pressedTrigger);
-                    animator.ResetTrigger(_animationTriggers.selectedTrigger);
-                    animator.ResetTrigger(_animationTriggers.disabledTrigger);
+                    _animator.ResetTrigger(_animationTriggers.normalTrigger);
+                    _animator.ResetTrigger(_animationTriggers.highlightedTrigger);
+                    _animator.ResetTrigger(_animationTriggers.pressedTrigger);
+                    _animator.ResetTrigger(_animationTriggers.selectedTrigger);
+                    _animator.ResetTrigger(_animationTriggers.disabledTrigger);
 
                     for(int i = 0; i < _states.Length; i++)
                     {
-                        animator.ResetTrigger(_states[i].AnimationTriggers.normalTrigger);
-                        animator.ResetTrigger(_states[i].AnimationTriggers.highlightedTrigger);
-                        animator.ResetTrigger(_states[i].AnimationTriggers.pressedTrigger);
-                        animator.ResetTrigger(_states[i].AnimationTriggers.selectedTrigger);
-                        animator.ResetTrigger(_states[i].AnimationTriggers.disabledTrigger);
+                        _animator.ResetTrigger(_states[i].AnimationTriggers.normalTrigger);
+                        _animator.ResetTrigger(_states[i].AnimationTriggers.highlightedTrigger);
+                        _animator.ResetTrigger(_states[i].AnimationTriggers.pressedTrigger);
+                        _animator.ResetTrigger(_states[i].AnimationTriggers.selectedTrigger);
+                        _animator.ResetTrigger(_states[i].AnimationTriggers.disabledTrigger);
                     }
 
-                    animator.SetTrigger(triggername);
+                    _animator.SetTrigger(triggername);
                 }                
             }        
         }

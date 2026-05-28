@@ -77,6 +77,20 @@ namespace UIFramework.UGUI
             }
         }
 
+        protected override void Awake()
+        {
+            base.Awake();
+            _stateMap = new Dictionary<string, int>();
+            if (_states != null)
+            {
+                for (int i = 0; i < _states.Length; i++)
+                {
+                    _stateMap.Add(_states[i].Name, i);
+                }
+            }
+            _buttonComponents = GetComponentsInChildren<IButtonComponent>();
+        }
+
         public void ResetButtonState()
         {
             SetButtonState(ButtonState.DefaultStateName);
