@@ -4,13 +4,17 @@ using UIFramework.Core;
 
 namespace UIFramework.Navigation.History
 {
-    public readonly struct NavigationHistoryEvent : IHistoryEvent
+    public class NavigationHistoryEvent : PooledHistoryEvent<NavigationHistoryEvent>
     {
-        public readonly Type WindowType;
+        public Type WindowType { get; private set; }
 
-        public NavigationHistoryEvent(Type windowType)
+        public static NavigationHistoryEvent Get(Type windowType)
         {
-            WindowType = windowType;
+            NavigationHistoryEvent e = Get();
+            e.WindowType = windowType;
+            return e;
         }
+
+        protected override void OnRelease() => WindowType = null;
     }
 }

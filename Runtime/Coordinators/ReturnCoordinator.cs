@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 
 using UIFramework.Core;
@@ -36,22 +35,22 @@ namespace UIFramework.Coordinators
             {
                 return new NavigateToResponse<TWindow>(
                     new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
-                );   
+                );
             }
 
-            IHistoryEntry historyEntry = _history.Pop();
+            using HistoryEventCollection events = _history.Pop();
 
-            if (!historyEntry.TryGetEvent(out NavigationHistoryEvent navEvent))
-                throw new InvalidOperationException($"History entry {historyEntry.ID} is missing a NavigationHistoryEvent.");
+            if (!events.TryGetEvent(out NavigationHistoryEvent navEvent))
+                throw new System.InvalidOperationException("History entry is missing a NavigationHistoryEvent.");
 
-            if (!historyEntry.TryGetEvent(out TransitionHistoryEvent transitionEvent))
-                throw new InvalidOperationException($"History entry {historyEntry.ID} is missing a TransitionHistoryEvent.");
+            if (!events.TryGetEvent(out TransitionHistoryEvent transitionEvent))
+                throw new System.InvalidOperationException("History entry is missing a TransitionHistoryEvent.");
 
             if (!_registry.TryGet(navEvent.WindowType, out TWindow target))
             {
                 return new NavigateToResponse<TWindow>(
                     new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
-                );   
+                );
             }
 
             NavigateToResult<TWindow> result = _navigator.NavigateTo(target);

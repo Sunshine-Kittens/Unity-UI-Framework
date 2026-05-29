@@ -3,13 +3,17 @@ using UIFramework.Transitioning;
 
 namespace UIFramework.Navigation.History
 {
-    public readonly struct TransitionHistoryEvent : IHistoryEvent
+    public class TransitionHistoryEvent : PooledHistoryEvent<TransitionHistoryEvent>
     {
-        public readonly VisibilityTransitionParams Transition;
+        public VisibilityTransitionParams Transition { get; private set; }
 
-        public TransitionHistoryEvent(VisibilityTransitionParams transition)
+        public static TransitionHistoryEvent Get(VisibilityTransitionParams transition)
         {
-            Transition = transition;
+            TransitionHistoryEvent e = Get();
+            e.Transition = transition;
+            return e;
         }
+
+        protected override void OnRelease() => Transition = default;
     }
 }

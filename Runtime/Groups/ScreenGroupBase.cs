@@ -32,8 +32,7 @@ namespace UIFramework.Groups
             get
             {
                 if (_history == null) return null;
-                IHistoryEntry entry = _history.Peek();
-                if (entry != null && entry.TryGetEvent(out NavigationHistoryEvent navEvent))
+                if (_history.TryPeek(out HistoryEventView events) && events.TryGetEvent(out NavigationHistoryEvent navEvent))
                 {
                     _registry.TryGet(navEvent.WindowType, out IScreen screen);
                     return screen;

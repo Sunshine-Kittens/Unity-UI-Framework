@@ -43,8 +43,8 @@ namespace UIFramework.Coordinators
             if (previous != null && _history != null)
             {
                 historyEntry = _history.PushNewEntry();
-                historyEntry.Append(new NavigationHistoryEvent(previous.GetType()));
-                historyEntry.Append(new TransitionHistoryEvent(transition));
+                historyEntry.Append(NavigationHistoryEvent.Get(previous.GetType()));
+                historyEntry.Append(TransitionHistoryEvent.Get(transition));
             }
 
             Awaitable awaitable = Execute(transition, active, previous, request.Data, request.CancellationToken);
