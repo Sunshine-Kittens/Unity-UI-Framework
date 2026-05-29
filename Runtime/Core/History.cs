@@ -13,14 +13,13 @@ namespace UIFramework.Core
     }
 
     // CRTP base for pooled history events. Each closed TSelf gets its own static pool.
-    public abstract class PooledHistoryEvent<TSelf> : PooledHistoryEvent
-        where TSelf : PooledHistoryEvent<TSelf>, new()
+    public abstract class PooledHistoryEvent<TSelf> : PooledHistoryEvent where TSelf : PooledHistoryEvent<TSelf>, new()
     {
-        private static readonly Stack<TSelf> _pool = new();
+        private static readonly Stack<TSelf> _Pool = new();
 
         protected static TSelf Get()
         {
-            TSelf e = _pool.Count > 0 ? _pool.Pop() : new TSelf();
+            TSelf e = _Pool.Count > 0 ? _Pool.Pop() : new TSelf();
             e.OnGet();
             return e;
         }
@@ -28,7 +27,7 @@ namespace UIFramework.Core
         public sealed override void Release()
         {
             OnRelease();
-            _pool.Push((TSelf)this);
+            _Pool.Push((TSelf)this);
         }
 
         protected virtual void OnGet() { }
@@ -37,15 +36,15 @@ namespace UIFramework.Core
 
     internal static class HistoryEventListPool
     {
-        private static readonly Stack<List<IHistoryEvent>> _pool = new();
+        private static readonly Stack<List<IHistoryEvent>> _Pool = new();
 
         internal static List<IHistoryEvent> Get()
-            => _pool.Count > 0 ? _pool.Pop() : new List<IHistoryEvent>();
+            => _Pool.Count > 0 ? _Pool.Pop() : new List<IHistoryEvent>();
 
         internal static void Release(List<IHistoryEvent> list)
         {
             list.Clear();
-            _pool.Push(list);
+            _Pool.Push(list);
         }
     }
 
