@@ -17,14 +17,16 @@ namespace UIFramework.Registry
         public void Unregister(TWidget widget);
 
         public void Clear();
-        
+
         public TWidget Get<TWidgetType>() where TWidgetType : class, TWidget;
         public TWidget Get(Type widgetType);
+        public TWidget Get(string identifier);
 
         public bool TryGet<TWidgetType>(out TWidgetType widget) where TWidgetType : class, TWidget;
         public bool TryGet<TWidgetType>(out TWidgetType widget, out int index) where TWidgetType : class, TWidget;
         public bool TryGet(Type widgetType, out TWidget widget);
         public bool TryGet(Type widgetType, out TWidget widget, out int index);
+        public bool TryGet(string identifier, out TWidget widget);
 
         public int IndexOf<TWidgetType>() where TWidgetType : class, TWidget;
         public int IndexOf(Type widgetType);
@@ -42,7 +44,8 @@ namespace UIFramework.Registry
         
         private bool _isInitialized;
         private readonly List<TWidget> _widgets;
-        private readonly Dictionary<Type, TWidget> _widgetMap;
+        private readonly Dictionary<Type, TWidget> _widgetTypeMap;
+        private readonly Dictionary<string, TWidget> _widgetIdentifierMap;
         private readonly Action<TWidget> _onInitialize;
         private readonly Action<TWidget> _onTerminate;
 
@@ -51,7 +54,8 @@ namespace UIFramework.Registry
             _onInitialize = onInitialize;
             _onTerminate = onTerminate;
             _widgets = new List<TWidget>();
-            _widgetMap = new Dictionary<Type, TWidget>();
+            _widgetTypeMap = new Dictionary<Type, TWidget>();
+            _widgetIdentifierMap = new Dictionary<string, TWidget>();
         }
         
         public void Collect(IEnumerable<IWidgetCollector<TWidget>> collectors)
@@ -93,9 +97,15 @@ namespace UIFramework.Registry
             if (widget == null) throw new ArgumentNullException(nameof(widget));
 
             Type widgetType = widget.GetType();
-            if (!_widgetMap.TryAdd(widgetType, widget))
+            if (!_widgetTypeMap.TryAdd(widgetType, widget))
             {
                 throw new InvalidOperationException($"Widget of type {widgetType.Name} is already registered");
+            }
+            string identifier = widget.Identifier;
+            if (!string.IsNullOrEmpty(identifier) && !_widgetIdentifierMap.TryAdd(identifier, widget))
+            {
+                _widgetTypeMap.Remove(widgetType);
+                throw new InvalidOperationException($"Widget with identifier '{identifier}' is already registered");
             }
             if (_isInitialized && widget.State == WidgetState.Uninitialized)
             {
@@ -129,10 +139,13 @@ namespace UIFramework.Registry
             if (widget == null) throw new ArgumentNullException(nameof(widget));
 
             Type widgetType = widget.GetType();
-            if (!_widgetMap.Remove(widgetType, out TWidget foundWidget) || foundWidget != widget)
+            if (!_widgetTypeMap.Remove(widgetType, out TWidget foundWidget) || foundWidget != widget)
             {
                 throw new InvalidOperationException($"Widget instance of type {widgetType.Name} is not registered");
             }
+            string identifier = widget.Identifier;
+            if (!string.IsNullOrEmpty(identifier))
+                _widgetIdentifierMap.Remove(identifier);
             if (_isInitialized && widget.State == WidgetState.Initialized)
             {
                 _onTerminate?.Invoke(widget);
@@ -159,10 +172,21 @@ namespace UIFramework.Registry
         public TWidget Get(Type widgetType)
         {
             if (!_isInitialized) throw new InvalidOperationException("Registry not initialized");
-            
-            if (!_widgetMap.TryGetValue(widgetType, out TWidget widget))
+
+            if (!_widgetTypeMap.TryGetValue(widgetType, out TWidget widget))
             {
                 throw new KeyNotFoundException($"No widget of type {widgetType.Name} registered");
+            }
+            return widget;
+        }
+
+        public TWidget Get(string identifier)
+        {
+            if (!_isInitialized) throw new InvalidOperationException("Registry not initialized");
+
+            if (!_widgetIdentifierMap.TryGetValue(identifier, out TWidget widget))
+            {
+                throw new KeyNotFoundException($"No widget with identifier '{identifier}' registered");
             }
             return widget;
         }
@@ -196,7 +220,7 @@ namespace UIFramework.Registry
             widget = null;
             if (!_isInitialized) return false;
 
-            if (_widgetMap.TryGetValue(widgetType, out TWidget foundWidget))
+            if (_widgetTypeMap.TryGetValue(widgetType, out TWidget foundWidget))
             {
                 widget = foundWidget;
                 return true;
@@ -210,7 +234,7 @@ namespace UIFramework.Registry
             index = -1;
             if (!_isInitialized) return false;
 
-            if (_widgetMap.TryGetValue(widgetType, out TWidget foundWidget))
+            if (_widgetTypeMap.TryGetValue(widgetType, out TWidget foundWidget))
             {
                 widget = foundWidget;
                 index = _widgets.IndexOf(foundWidget);
@@ -218,10 +242,18 @@ namespace UIFramework.Registry
             }
             return false;
         }
-        
+
+        public bool TryGet(string identifier, out TWidget widget)
+        {
+            widget = null;
+            if (!_isInitialized) return false;
+
+            return _widgetIdentifierMap.TryGetValue(identifier, out widget);
+        }
+
         public int IndexOf<TWidgetType>() where TWidgetType : class, TWidget
         {
-            if (_widgetMap.TryGetValue(typeof(TWidgetType), out TWidget widget))
+            if (_widgetTypeMap.TryGetValue(typeof(TWidgetType), out TWidget widget))
             {
                 return _widgets.IndexOf(widget);
             }
@@ -230,7 +262,7 @@ namespace UIFramework.Registry
         
         public int IndexOf(Type widgetType)
         {
-            if (_widgetMap.TryGetValue(widgetType, out TWidget widget))
+            if (_widgetTypeMap.TryGetValue(widgetType, out TWidget widget))
             {
                 return _widgets.IndexOf(widget);
             }
@@ -269,7 +301,8 @@ namespace UIFramework.Registry
                     widget.Terminate();
                 }
             }
-            _widgetMap.Clear();
+            _widgetTypeMap.Clear();
+            _widgetIdentifierMap.Clear();
             _widgets.Clear();
             _isInitialized = false;
         }

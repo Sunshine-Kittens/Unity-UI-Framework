@@ -115,6 +115,7 @@ namespace UIFramework.Groups
             if (State == InitializationState.Initialized)
                 throw new InvalidOperationException("ScreenGroup is already initialized.");
 
+            // Initialize() must precede Collect() — it performs lazy setup that Collect() depends on.
             _registry.Initialize();
             _registry.Collect(Collectors);
 
@@ -162,6 +163,13 @@ namespace UIFramework.Groups
             if (!IsInitialized)
                 throw new InvalidOperationException("ScreenGroup is not initialized.");
             return new NavigateToRequest<IScreen>(_navigator, _navigateToCoordinator, _navigator.ActiveInstance, _registry.Get<TTarget>());
+        }
+
+        public NavigateToRequest<IScreen> CreateNavigateToRequest(string identifier)
+        {
+            if (!IsInitialized)
+                throw new InvalidOperationException("ScreenGroup is not initialized.");
+            return new NavigateToRequest<IScreen>(_navigator, _navigateToCoordinator, _navigator.ActiveInstance, _registry.Get(identifier));
         }
 
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)

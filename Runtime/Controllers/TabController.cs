@@ -93,6 +93,13 @@ namespace UIFramework.Controllers
             return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get<TTarget>());
         }
 
+        public NavigateToRequest<TWindow> CreateNavigateToRequest(string identifier)
+        {
+            if (!IsInitialized)
+                throw new InvalidOperationException("TabController is not initialized.");
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get(identifier));
+        }
+
         public NavigateToRequest<TWindow> CreateNavigateToRequest(int index)
         {
             if (!IsInitialized)

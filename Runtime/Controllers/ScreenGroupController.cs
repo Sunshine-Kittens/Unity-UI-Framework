@@ -23,6 +23,11 @@ namespace UIFramework.Controllers
         {
             throw new NotImplementedException();
         }
+
+        public NavigateToRequest<IScreen> CreateNavigateToRequest(string identifier)
+        {
+            throw new NotImplementedException();
+        }
         
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)
         {
