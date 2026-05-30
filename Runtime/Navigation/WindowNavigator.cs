@@ -68,6 +68,14 @@ namespace UIFramework.Navigation
             return InvokeNavigationUpdate(new NavigateToResult<TWindow>(true, previous, null));
         }
 
+        // Silent reset for pooled reuse — clears active state and invalidates outstanding requests
+        // (via Version) without firing a navigation update.
+        public void Reset()
+        {
+            _activeType = null;
+            Version++;
+        }
+
         private NavigateToResult<TWindow> InvokeNavigationUpdate(NavigateToResult<TWindow> result)
         {
             OnNavigationUpdate?.Invoke(result);

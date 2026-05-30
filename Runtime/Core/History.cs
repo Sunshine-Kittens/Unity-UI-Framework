@@ -287,6 +287,9 @@ namespace UIFramework.Core
         {
             if (_history.Count > 0)
             {
+                // Release entries (re-pools their events + lists) rather than orphaning them to GC.
+                for (int i = 0; i < _history.Count; i++)
+                    _history[i].Release();
                 _history.Clear();
                 return true;
             }

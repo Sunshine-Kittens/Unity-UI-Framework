@@ -469,6 +469,21 @@ namespace UIFramework.Transitioning
             return null;
         }
         
+        // Forces the manager to a clean state for pooled reuse. Intended to be called once the owning
+        // group's transitions have settled; any still-in-flight Transition awaitables are cancelled and
+        // their entries are released by their own finally blocks (so Reset does not release them here,
+        // which avoids a double-release into the pool).
+        public void Reset()
+        {
+            _skipAll = false;
+            _active?.Cts?.Cancel();
+            _active = null;
+            for (int i = 0; i < _pending.Count; i++)
+                _pending[i].Cts?.Cancel();
+            _pending.Clear();
+            _pendingSet.Clear();
+        }
+
         public void Terminate()
         {
             _ = SkipAll();
