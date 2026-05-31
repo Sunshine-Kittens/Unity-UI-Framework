@@ -5,20 +5,19 @@ using UIFramework.Controllers.Interfaces;
 using UIFramework.Coordinators;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation;
-using UIFramework.Registry;
 using UIFramework.Transitioning;
 
 using UnityEngine.Extension;
 
 namespace UIFramework.Controllers
 {
-    public sealed class TabController<TWindow> : ITabController<TWindow> where TWindow : class, IWindow
+    public sealed class TabController<TWindow> : Controller<TWindow>, ITabController<TWindow>
+        where TWindow : class, IWindow
     {
-        public IReadOnlyList<TWindow> Tabs => _registry.Widgets;
-        
+        public IReadOnlyList<TWindow> Tabs => Registry.Widgets;
+
         public TWindow ActiveWindow => _navigator.ActiveInstance;
         public int ActiveIndex => _navigator.ActiveIndex;
-        public bool IsInitialized => _registry.IsInitialized;
 
         public event WindowIndexAction TabAdded;
         public event WindowIndexAction TabIndexChanged;
@@ -26,56 +25,49 @@ namespace UIFramework.Controllers
         public event WindowAction WindowShown;
         public event WindowAction WindowHidden;
 
-        private readonly WidgetRegistry<TWindow> _registry;
         private readonly WindowNavigator<TWindow> _navigator;
         private readonly TransitionManager _transitionManager;
         private readonly NavigateToCoordinator<TWindow> _coordinator;
 
         public TabController(TimeMode timeMode, IEnumerable<TWindow> windows)
+            : base(timeMode)
         {
             if (windows == null) throw new ArgumentNullException(nameof(windows));
 
-            void OnWindowInitialize(IWidget widget)
-            {
-                widget.Shown += OnWindowShown;
-                widget.Hidden += OnWindowHidden;
-                widget.SetVisibility(WidgetVisibility.Hidden);
-            }
-
-            void OnWindowTerminate(IWidget widget)
-            {
-                widget.Shown -= OnWindowShown;
-                widget.Hidden -= OnWindowHidden;
-            }
-
-            _registry = new WidgetRegistry<TWindow>(OnWindowInitialize, OnWindowTerminate);
             foreach (TWindow window in windows)
-                _registry.Register(window);
+                Registry.Register(window);
 
-            _navigator = new WindowNavigator<TWindow>(_registry);
+            _navigator = new WindowNavigator<TWindow>(Registry);
             _transitionManager = new TransitionManager(timeMode);
             // Tabs have no back-stack — history is null so the coordinator skips history tracking.
             _coordinator = new NavigateToCoordinator<TWindow>(timeMode, _navigator, null, _transitionManager);
         }
 
-        public void Initialize()
+        protected override void OnWidgetInitialize(TWindow window)
         {
-            if (IsInitialized)
-                throw new InvalidOperationException("TabController is already initialized.");
-            _registry.WidgetRegistered += OnWindowRegistered;
-            _registry.WidgetIndexChanged += OnWindowIndexChanged;
-            _registry.WidgetUnregistered += OnWindowUnregistered;
-            _registry.Initialize();
+            window.Shown += OnWindowShown;
+            window.Hidden += OnWindowHidden;
+            window.SetVisibility(WidgetVisibility.Hidden);
         }
 
-        public void Terminate()
+        protected override void OnWidgetTerminate(TWindow window)
         {
-            if (!IsInitialized)
-                throw new InvalidOperationException("TabController is not initialized.");
-            _registry.WidgetRegistered -= OnWindowRegistered;
-            _registry.WidgetIndexChanged -= OnWindowIndexChanged;
-            _registry.WidgetUnregistered -= OnWindowUnregistered;
-            _registry.Terminate();
+            window.Shown -= OnWindowShown;
+            window.Hidden -= OnWindowHidden;
+        }
+
+        protected override void OnInitialize()
+        {
+            Registry.WidgetRegistered += OnWindowRegistered;
+            Registry.WidgetIndexChanged += OnWindowIndexChanged;
+            Registry.WidgetUnregistered += OnWindowUnregistered;
+        }
+
+        protected override void OnTerminate()
+        {
+            Registry.WidgetRegistered -= OnWindowRegistered;
+            Registry.WidgetIndexChanged -= OnWindowIndexChanged;
+            Registry.WidgetUnregistered -= OnWindowUnregistered;
             _transitionManager.Terminate();
         }
 
@@ -90,21 +82,21 @@ namespace UIFramework.Controllers
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get<TTarget>());
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, Registry.Get<TTarget>());
         }
 
         public NavigateToRequest<TWindow> CreateNavigateToRequest(string identifier)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Get(identifier));
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, Registry.Get(identifier));
         }
 
         public NavigateToRequest<TWindow> CreateNavigateToRequest(int index)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, _registry.Widgets[index]);
+            return new NavigateToRequest<TWindow>(_navigator, _coordinator, _navigator.ActiveInstance, Registry.Widgets[index]);
         }
 
         private void OnWindowShown(IWidget widget) => WindowShown?.Invoke(widget as IWindow);
@@ -117,35 +109,35 @@ namespace UIFramework.Controllers
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            _registry.Register(widget);
+            Registry.Register(widget);
         }
 
         public void SetTabIndex(TWindow widget, int index)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            _registry.SetIndex(widget, index);
+            Registry.SetIndex(widget, index);
         }
 
         public void RemoveTabWindow(TWindow widget)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            _registry.Unregister(widget);
+            Registry.Unregister(widget);
         }
 
         public void RemoveTabWindowAt(int index)
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            _registry.Unregister(_registry.Widgets[index]);
+            Registry.Unregister(Registry.Widgets[index]);
         }
 
         public void ClearTabs()
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("TabController is not initialized.");
-            _registry.Clear();
+            Registry.Clear();
         }
     }
 }

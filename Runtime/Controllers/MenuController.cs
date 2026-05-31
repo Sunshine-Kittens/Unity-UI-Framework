@@ -17,9 +17,9 @@ namespace UIFramework.Controllers
             BackgroundWidget = backgroundWidget;
         }
 
-        protected override void OnEnter()
+        protected override void OnEntering()
         {
-            base.OnEnter();
+            base.OnEntering();
             AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Visible);
             if (playable.IsValid())
                 BackgroundWidget.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate);
@@ -27,9 +27,9 @@ namespace UIFramework.Controllers
                 BackgroundWidget.SetVisibility(WidgetVisibility.Visible);
         }
 
-        protected override void OnExit()
+        protected override void OnExited()
         {
-            base.OnExit();
+            base.OnExited();
             AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Hidden);
             if (playable.IsValid())
                 BackgroundWidget.AnimateVisibility(WidgetVisibility.Hidden, playable, InterruptBehavior.Immediate);
