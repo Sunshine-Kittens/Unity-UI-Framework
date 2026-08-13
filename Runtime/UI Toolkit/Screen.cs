@@ -102,8 +102,11 @@ namespace UIFramework.UIToolkit
         {
             if(AccessState == AccessState.Open || AccessState == AccessState.Opening)
             {
+                OnBackButtonClicked();
                 Controller.TryCloseScreen();
             }            
         }
+        
+        protected virtual void OnBackButtonClicked() { }
     }
 }

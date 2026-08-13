@@ -94,13 +94,16 @@ namespace UIFramework.UGUI
         {
             return other as Screen == this;
         }
-
+        
         private void BackButtonClicked()
         {
             if (AccessState == AccessState.Open || AccessState == AccessState.Opening)
             {
+                OnBackButtonClicked();
                 Controller.TryCloseScreen();
             }
         }
+
+        protected virtual void OnBackButtonClicked() { }
     }
 }
