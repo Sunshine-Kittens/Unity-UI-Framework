@@ -18,7 +18,7 @@ namespace UIFramework.Core
         private static readonly Stack<TSelf> _Pool = new();
 
         static PooledHistoryEvent()
-            => PoolRegistry.Register($"PooledHistoryEvent<{typeof(TSelf).Name}>",
+            => PoolRegistry.Register($"PooledHistoryEvent<{typeof(TSelf).FullName}>",
                 () => _Pool.Count, () => _Pool.Clear());
 
         protected static TSelf Get()
@@ -156,7 +156,7 @@ namespace UIFramework.Core
         private static readonly Stack<TSelf> _Pool = new();
 
         static PooledHistoryEntry()
-            => PoolRegistry.Register($"PooledHistoryEntry<{typeof(TSelf).Name}>",
+            => PoolRegistry.Register($"PooledHistoryEntry<{typeof(TSelf).FullName}>",
                 () => _Pool.Count, () => _Pool.Clear());
 
         public static TSelf Get(Guid guid)

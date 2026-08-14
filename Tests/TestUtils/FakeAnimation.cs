@@ -11,9 +11,13 @@ namespace UIFramework.TestUtils
         public readonly List<float> Evaluations = new();
 
         public float Length { get; }
-        public IReadOnlyList<AnimationEvent> Events { get; } = Array.Empty<AnimationEvent>();
+        public IReadOnlyList<AnimationEvent> Events { get; }
 
-        public FakeAnimation(float length = 1f) => Length = length;
+        public FakeAnimation(float length = 1f, params AnimationEvent[] events)
+        {
+            Length = length;
+            Events = events ?? Array.Empty<AnimationEvent>();
+        }
 
         public void Evaluate(float normalisedTime) => Evaluations.Add(normalisedTime);
     }
