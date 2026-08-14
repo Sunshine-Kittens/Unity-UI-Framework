@@ -1,5 +1,5 @@
 {
-  "name": "com.lukeandrews.ui-framework",
+  "name": "com.luke-andrews.ui-framework",
   "version": "1.0.25",
   "displayName": "UI Framework",
   "description": "A code library that outlines a generic framework for creating UI systems in within Unity.",
@@ -8,7 +8,7 @@
   "changelogUrl": "https://example.com/changelog.html",
   "licensesUrl": "https://example.com/licensing.html",
   "dependencies": {
-    "com.lukeandrews.unity-extension": "1.0.20",
+    "com.luke-andrews.unity-extension": "1.0.20",
     "com.unity.ugui": "1.0.0",
     "com.unity.modules.ui": "1.0.0",
     "com.unity.modules.uielements": "1.0.0"

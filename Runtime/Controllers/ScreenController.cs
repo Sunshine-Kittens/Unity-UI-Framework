@@ -27,11 +27,11 @@ namespace UIFramework.Controllers
         public IReadOnlyList<IScreenGroup> Groups => _groups;
         public IScreenGroup ActiveGroup => _groups.Count > 0 ? _groups[^1] : null;
 
-        private readonly IEnumerable<WidgetCollector<IScreen>> _collectors;
+        private readonly IEnumerable<IWidgetCollector<IScreen>> _collectors;
         private readonly List<ScreenGroup> _groups = new();
         private readonly Stack<ScreenGroup> _pool = new();
 
-        public ScreenController(IEnumerable<WidgetCollector<IScreen>> collectors, TimeMode timeMode)
+        public ScreenController(IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode)
             : base(timeMode)
         {
             _collectors = collectors ?? throw new ArgumentNullException(nameof(collectors));

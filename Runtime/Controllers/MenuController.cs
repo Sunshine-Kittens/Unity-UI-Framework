@@ -11,7 +11,7 @@ namespace UIFramework.Controllers
     {
         protected IWidget BackgroundWidget { get; }
 
-        public MenuController(IWidget backgroundWidget, IEnumerable<WidgetCollector<IScreen>> collectors, TimeMode timeMode)
+        public MenuController(IWidget backgroundWidget, IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode)
             : base(collectors, timeMode)
         {
             BackgroundWidget = backgroundWidget;
