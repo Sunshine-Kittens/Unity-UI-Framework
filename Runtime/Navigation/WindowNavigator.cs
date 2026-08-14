@@ -18,11 +18,11 @@ namespace UIFramework.Navigation
         public Type ActiveType => _activeType;
 
         private Type _activeType;
-        private readonly WidgetRegistry<TWindow> _registry;
+        private readonly IWidgetRegistry<TWindow> _registry;
 
         public event Action<NavigateToResult<TWindow>> OnNavigationUpdate;
 
-        public WindowNavigator(WidgetRegistry<TWindow> registry)
+        public WindowNavigator(IWidgetRegistry<TWindow> registry)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _registry.WidgetUnregistered += OnWidgetUnregistered;

@@ -15,15 +15,18 @@ namespace UIFramework.Controllers
     {
         public bool IsInitialized => Registry.IsInitialized;
 
-        protected WidgetRegistry<TWindow> Registry { get; }
+        protected IWidgetRegistry<TWindow> Registry { get; }
         protected TimeMode TimeMode { get; }
 
-        protected Controller(TimeMode timeMode)
+        protected Controller(TimeMode timeMode, IWidgetRegistry<TWindow> registry = null)
         {
             TimeMode = timeMode;
-            // The method-group hooks are only invoked once a widget is initialized (during Initialize or a
-            // post-init Register), never during construction — so virtual dispatch here is safe.
-            Registry = new WidgetRegistry<TWindow>(OnWidgetInitialize, OnWidgetTerminate);
+            Registry = registry ?? new WidgetRegistry<TWindow>();
+            // Subscribed here rather than handed to the registry, so an injected registry is wired identically.
+            // The handlers only run once a widget is initialized (during Initialize or a post-init Register),
+            // never during construction — so virtual dispatch here is safe.
+            Registry.WidgetInitialized += OnWidgetInitialize;
+            Registry.WidgetTerminated += OnWidgetTerminate;
         }
 
         public virtual void Initialize()

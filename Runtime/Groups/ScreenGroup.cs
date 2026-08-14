@@ -63,7 +63,7 @@ namespace UIFramework.Groups
         public event ScreenAction ScreenHiding;
         public event ScreenAction ScreenHidden;
 
-        private readonly WidgetRegistry<IScreen> _registry;
+        private readonly IWidgetRegistry<IScreen> _registry;
         private readonly WindowNavigator<IScreen> _navigator;
         private readonly TransitionManager _transitionManager;
         private readonly History _history;
@@ -81,7 +81,7 @@ namespace UIFramework.Groups
         // The shared registry is already initialized by the controller; the group only composes navigation
         // over it. Per-screen wiring (navigator back-ref, event subscriptions, group state) happens on join,
         // not here, since registry init is controller-owned and spans every group.
-        public ScreenGroup(WidgetRegistry<IScreen> registry, TimeMode timeMode)
+        public ScreenGroup(IWidgetRegistry<IScreen> registry, TimeMode timeMode)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             TimeMode = timeMode;

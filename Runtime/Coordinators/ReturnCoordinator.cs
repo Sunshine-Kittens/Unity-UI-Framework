@@ -16,11 +16,11 @@ namespace UIFramework.Coordinators
         where TWindow : class, IWindow
     {
         private readonly WindowNavigator<TWindow> _navigator;
-        private readonly WidgetRegistry<TWindow> _registry;
+        private readonly IWidgetRegistry<TWindow> _registry;
         private readonly History _history;
         private readonly TransitionManager _transitionManager;
 
-        public ReturnCoordinator(WindowNavigator<TWindow> navigator, WidgetRegistry<TWindow> registry,
+        public ReturnCoordinator(WindowNavigator<TWindow> navigator, IWidgetRegistry<TWindow> registry,
             History history, TransitionManager transitionManager)
         {
             _navigator = navigator;

@@ -15,6 +15,10 @@ namespace UIFramework.Registry
         public event Action<TWidget, int> WidgetIndexChanged;
         public event Action<TWidget, int> WidgetUnregistered;
 
+        // Raised for registry-driven transitions only; a widget that initializes itself does not report here.
+        public event Action<TWidget> WidgetInitialized;
+        public event Action<TWidget> WidgetTerminated;
+
         public void Initialize();
         public void Terminate();
 
@@ -49,20 +53,23 @@ namespace UIFramework.Registry
         public event Action<TWidget, int> WidgetRegistered;
         public event Action<TWidget, int> WidgetIndexChanged;
         public event Action<TWidget, int> WidgetUnregistered;
-        
+
+        public event Action<TWidget> WidgetInitialized;
+        public event Action<TWidget> WidgetTerminated;
+
         public bool IsInitialized => _isInitialized;
         
         private bool _isInitialized;
         private readonly List<TWidget> _widgets;
         private readonly Dictionary<Type, TWidget> _widgetTypeMap;
         private readonly Dictionary<string, TWidget> _widgetIdentifierMap;
-        private readonly Action<TWidget> _onInitialize;
-        private readonly Action<TWidget> _onTerminate;
+        private readonly IWidgetLifecycle<TWidget> _lifecycle;
 
-        public WidgetRegistry(Action<TWidget> onInitialize, Action<TWidget> onTerminate)
+        public WidgetRegistry() : this(null) { }
+
+        public WidgetRegistry(IWidgetLifecycle<TWidget> lifecycle)
         {
-            _onInitialize = onInitialize;
-            _onTerminate = onTerminate;
+            _lifecycle = lifecycle ?? new WidgetLifecycle<TWidget>();
             _widgets = new List<TWidget>();
             _widgetTypeMap = new Dictionary<Type, TWidget>();
             _widgetIdentifierMap = new Dictionary<string, TWidget>();
@@ -117,10 +124,10 @@ namespace UIFramework.Registry
                 _widgetTypeMap.Remove(widgetType);
                 throw new InvalidOperationException($"Widget with identifier '{identifier}' is already registered");
             }
-            if (_isInitialized && widget.State == WidgetState.Uninitialized)
+            if (_isInitialized && _lifecycle.CanInitialize(widget))
             {
-                widget.Initialize();
-                _onInitialize?.Invoke(widget);
+                _lifecycle.Initialize(widget);
+                WidgetInitialized?.Invoke(widget);
             }
             _widgets.Add(widget);
             WidgetRegistered?.Invoke(widget, _widgets.Count - 1);
@@ -156,10 +163,11 @@ namespace UIFramework.Registry
             string identifier = widget.Identifier;
             if (!string.IsNullOrEmpty(identifier))
                 _widgetIdentifierMap.Remove(identifier);
-            if (_isInitialized && widget.State == WidgetState.Initialized)
+            if (_isInitialized && _lifecycle.CanTerminate(widget))
             {
-                _onTerminate?.Invoke(widget);
-                widget.Terminate();
+                // Notified before teardown so consumers can unsubscribe while the widget is still live.
+                WidgetTerminated?.Invoke(widget);
+                _lifecycle.Terminate(widget);
             }
             int index = _widgets.IndexOf(widget);
             _widgets.Remove(widget);
@@ -290,10 +298,10 @@ namespace UIFramework.Registry
 
             foreach (TWidget widget in _widgets)
             {
-                if (widget.State == WidgetState.Uninitialized)
+                if (_lifecycle.CanInitialize(widget))
                 {
-                    widget.Initialize();
-                    _onInitialize?.Invoke(widget);
+                    _lifecycle.Initialize(widget);
+                    WidgetInitialized?.Invoke(widget);
                 }
             }
             _isInitialized = true;
@@ -305,10 +313,10 @@ namespace UIFramework.Registry
             
             foreach (TWidget widget in _widgets)
             {
-                if (widget.State == WidgetState.Initialized)
+                if (_lifecycle.CanTerminate(widget))
                 {
-                    _onTerminate?.Invoke(widget);
-                    widget.Terminate();
+                    WidgetTerminated?.Invoke(widget);
+                    _lifecycle.Terminate(widget);
                 }
             }
             _widgetTypeMap.Clear();
