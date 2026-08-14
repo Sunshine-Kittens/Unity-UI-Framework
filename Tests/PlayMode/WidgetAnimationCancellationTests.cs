@@ -14,14 +14,12 @@ using UnityEngine.TestTools;
 
 namespace UIFramework.Tests.PlayMode
 {
-    // Known defect: cancelling a running visibility animation corrupts the widget.
+    // Cancelling a running visibility animation must leave the widget usable: the caller sees the
+    // cancellation it asked for, the widget stops reporting itself as animating, the interactable override
+    // taken on entry is given back, and the pooled handle returns to the pool.
     //
-    // Cancellation sets both of the handle's completion sources to Canceled. The awaited animation then throws
-    // OperationCanceledException, and the catch routes through Complete(), which calls the non-Try SetResult on
-    // an already-cancelled source. That throws InvalidOperationException, so the handle is never released, the
-    // active handle reference is never cleared, and the interactable override set on entry is never restored.
-    //
-    // These tests assert the defect as it stands; invert them when it is fixed.
+    // All four used to fail. Cancellation settles the handle's completion sources, and the teardown then
+    // called the non-Try setters on them, so it threw partway through and skipped the rest of the cleanup.
     public sealed class WidgetAnimationCancellationTests
     {
         private PoolScope _pools;
@@ -53,8 +51,13 @@ namespace UIFramework.Tests.PlayMode
                 .Animate();
         }
 
-        // Control: an animation left to finish behaves correctly, which is what makes the cancel path's
-        // divergence below a defect rather than a misunderstanding of the API.
+        private IEnumerator CancelMidAnimation(AwaitableProbe probe, CancellationTokenSource cts)
+        {
+            yield return null;
+            cts.Cancel();
+            yield return probe.WaitForCompletion();
+        }
+
         [UnityTest]
         public IEnumerator AnimationRunToCompletionReleasesItsHandle()
         {
@@ -70,59 +73,67 @@ namespace UIFramework.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator CancellingSurfacesInvalidOperationRatherThanCancellation()
+        public IEnumerator CancellingSurfacesOperationCanceled()
         {
             using CancellationTokenSource cts = new();
             AwaitableProbe probe = AwaitableProbe.Watch(StartFadeIn(cts.Token));
 
-            yield return null;
-            cts.Cancel();
-            yield return probe.WaitForCompletion();
+            yield return CancelMidAnimation(probe, cts);
 
-            Assert.That(probe.Exception, Is.TypeOf<InvalidOperationException>(),
-                "the caller sees the completion source complaining, not the cancellation it asked for");
+            Assert.That(probe.Exception, Is.TypeOf<OperationCanceledException>(),
+                "the caller is told the animation was cancelled, not that a completion source was misused");
         }
 
         [UnityTest]
-        public IEnumerator CancellingLeavesTheWidgetPermanentlyAnimating()
+        public IEnumerator CancellingClearsTheAnimatingState()
         {
             using CancellationTokenSource cts = new();
             AwaitableProbe probe = AwaitableProbe.Watch(StartFadeIn(cts.Token));
 
-            yield return null;
-            cts.Cancel();
-            yield return probe.WaitForCompletion();
+            yield return CancelMidAnimation(probe, cts);
 
-            Assert.That(_fixture.Widget.IsAnimating, Is.True,
-                "the active handle is never cleared, so the widget reports animating for good");
+            Assert.That(_fixture.Widget.IsAnimating, Is.False,
+                "the active handle is cleared, so a later animation can start");
         }
 
         [UnityTest]
-        public IEnumerator CancellingLeavesTheWidgetNonInteractable()
+        public IEnumerator CancellingRestoresInteractivity()
         {
             using CancellationTokenSource cts = new();
             AwaitableProbe probe = AwaitableProbe.Watch(StartFadeIn(cts.Token));
 
-            yield return null;
-            cts.Cancel();
-            yield return probe.WaitForCompletion();
+            yield return CancelMidAnimation(probe, cts);
 
-            Assert.That(_fixture.Widget.IsInteractable.Value, Is.False,
-                "the override set on entry is only restored on the success path");
+            Assert.That(_fixture.Widget.IsInteractable.Value, Is.True,
+                "the override taken when the animation started is given back on every exit path");
         }
 
         [UnityTest]
-        public IEnumerator CancellingLeaksThePooledHandle()
+        public IEnumerator CancellingReturnsTheHandleToThePool()
         {
             using CancellationTokenSource cts = new();
             AwaitableProbe probe = AwaitableProbe.Watch(StartFadeIn(cts.Token));
 
-            yield return null;
-            cts.Cancel();
-            yield return probe.WaitForCompletion();
+            yield return CancelMidAnimation(probe, cts);
 
-            Assert.That(_pools.CountOf(UguiWidgetFixture.HandlePoolName), Is.EqualTo(0),
-                "Release() is unreachable once Complete() throws, so the handle never returns to the pool");
+            Assert.That(_pools.CountOf(UguiWidgetFixture.HandlePoolName), Is.EqualTo(1),
+                "the handle is pooled rather than leaked, along with its cancellation registration");
+        }
+
+        [UnityTest]
+        public IEnumerator AWidgetCanAnimateAgainAfterBeingCancelled()
+        {
+            using (CancellationTokenSource cts = new())
+            {
+                AwaitableProbe cancelled = AwaitableProbe.Watch(StartFadeIn(cts.Token));
+                yield return CancelMidAnimation(cancelled, cts);
+            }
+
+            AwaitableProbe second = AwaitableProbe.Watch(StartFadeIn(CancellationToken.None, 0.1f));
+            yield return second.WaitForCompletion();
+
+            Assert.That(second.Exception, Is.Null, "a cancelled animation leaves no state behind");
+            Assert.That(_fixture.Widget.Visibility, Is.EqualTo(WidgetVisibility.Visible));
         }
     }
 }

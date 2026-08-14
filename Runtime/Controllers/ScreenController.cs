@@ -114,7 +114,7 @@ namespace UIFramework.Controllers
             // ...otherwise the group is at its root: collapse it (Exited -> pop + resume below), unless it is
             // the base group, which has nowhere to return to.
             if (_groups.Count > 1)
-                return active.Exit(new ExitRequest { CancellationToken = cancellationToken });
+                return ExitGroup(active, new ExitRequest { CancellationToken = cancellationToken });
 
             return FailureResponse();
         }
@@ -124,8 +124,24 @@ namespace UIFramework.Controllers
             ScreenGroup active = _groups.Count > 0 ? _groups[^1] : null;
             if (active == null)
                 return FailureResponse();
-            // The group's Exited event drives the pop + resume-below in OnGroupExited.
-            return active.Exit(in request);
+            return ExitGroup(active, in request);
+        }
+
+        // Normally the group's Exited event drives the pop + resume-below in OnGroupExited. A group with no
+        // active screen has nothing to hide, so that event can never fire and Exit would be a silent no-op —
+        // leaving the group stacked and the layer below paused for good. Pop it directly instead.
+        private NavigateToResponse<IScreen> ExitGroup(ScreenGroup group, in ExitRequest request)
+        {
+            if (group.ActiveScreen != null)
+                return group.Exit(in request);
+
+            int index = _groups.IndexOf(group);
+            if (index < 0)
+                return FailureResponse();
+
+            PopGroupAt(index, group);
+            return new NavigateToResponse<IScreen>(
+                new NavigateToResult<IScreen>(true, null, ActiveGroup?.ActiveScreen), null);
         }
 
         // Activation hooks for subclasses (e.g. MenuController's backdrop): fired as the controller gains its
@@ -168,11 +184,15 @@ namespace UIFramework.Controllers
             if (index < 0)
                 return;   // guard: already popped / re-entrant exit
 
+            PopGroupAt(index, group);
+        }
+
+        private void PopGroupAt(int index, ScreenGroup group)
+        {
             _groups.RemoveAt(index);
-            // Reset runs from within the group's Exited callback (fired as its last screen finished hiding).
-            // By then the hide transition has settled, so this releases held screens, history and the pooled
-            // primitives cleanly. This synchronous reset-on-collapse is the framework's highest-risk path —
-            // validate in play mode (transition cleanup, stale event subs) before relying on it.
+            // On the Exited path this runs from within the group's callback (fired as its last screen
+            // finished hiding), so the hide transition has settled and releasing held screens, history and
+            // the pooled primitives is safe.
             group.Reset();
             _pool.Push(group);
             RecomputeBands();

@@ -68,9 +68,11 @@ namespace UIFramework.Core
                 _completedCompletionSource.TrySetCanceled();
             }
 
+            // Every completion source below is set with Try*: the cancellation registration can complete both
+            // sources at any point, and the non-Try setters throw on an already-settled source.
             private void OnAnimationComplete(IAnimation animation)
             {
-                _animationCompletionSource.SetResult();
+                _animationCompletionSource.TrySetResult();
             }
 
             public void CancelAnimation()
@@ -81,7 +83,7 @@ namespace UIFramework.Core
                     if (_animationPlayer.IsPlaying)
                     {
                         _animationPlayer.Stop();
-                        _animationCompletionSource.SetCanceled();
+                        _animationCompletionSource.TrySetCanceled();
                     }
                     _animationPlayer.Release();
                     _animationPlayer = null;
@@ -92,7 +94,7 @@ namespace UIFramework.Core
             {
                 CancelAnimation();
                 _isCanceled = true;
-                _completedCompletionSource.SetCanceled();
+                _completedCompletionSource.TrySetCanceled();
             }
 
             public void CompleteAnimation()
@@ -103,7 +105,7 @@ namespace UIFramework.Core
                     if (_animationPlayer.IsPlaying)
                     {
                         _animationPlayer.Complete();
-                        _animationCompletionSource.SetResult();
+                        _animationCompletionSource.TrySetResult();
                     }
                     _animationPlayer.Release();
                     _animationPlayer = null;
@@ -114,7 +116,7 @@ namespace UIFramework.Core
             {
                 CompleteAnimation();
                 _isComplete = true;
-                _completedCompletionSource.SetResult();
+                _completedCompletionSource.TrySetResult();
             }
 
             public AnimationPlayer DuplicateAnimationPlayer()
@@ -340,12 +342,16 @@ namespace UIFramework.Core
             }
             catch (OperationCanceledException)
             {
-                CompleteAnimationHandle(handle);
+                // Cancelled, not finished: stop the animation rather than completing it, and hand the
+                // handle back. The finally still restores interactivity and animated state.
+                CancelAnimationHandle(handle);
                 throw;
             }
-
-            ResetAnimatedProperties();
-            IsInteractableInternal.SetOverrideValue(true);
+            finally
+            {
+                ResetAnimatedProperties();
+                IsInteractableInternal.SetOverrideValue(true);
+            }
 
             if (Visibility == WidgetVisibility.Visible)
             {
@@ -476,7 +482,20 @@ namespace UIFramework.Core
         private void CompleteAnimationHandle(VisibilityAnimationHandle handle)
         {
             handle.Complete();
-            if(handle == _animationHandle)
+            ReleaseAnimationHandle(handle);
+        }
+
+        private void CancelAnimationHandle(VisibilityAnimationHandle handle)
+        {
+            handle.Cancel();
+            ReleaseAnimationHandle(handle);
+        }
+
+        // Clearing the active handle is what makes IsAnimating false again; releasing returns it to the pool.
+        // Both must happen on every exit path, or the widget stays stuck animating and the handle leaks.
+        private void ReleaseAnimationHandle(VisibilityAnimationHandle handle)
+        {
+            if (handle == _animationHandle)
                 _animationHandle = null;
             handle.Release();
         }

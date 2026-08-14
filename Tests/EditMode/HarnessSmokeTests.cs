@@ -75,20 +75,33 @@ namespace UIFramework.Tests.EditMode
             Assert.That(_b.GlobalSortOrder, Is.EqualTo(100), "band step is 100 per stacked group");
         }
 
-        // Known defect: the group reports itself paused, but its screens stay interactable. ScalarFlag.Value
-        // is a counter, and Acquire's `screen.IsInteractable.Value = _isInteractable.Value` raises the
-        // screen's count to 2, so the pause's single decrement lands on 1 — still truthy.
-        // When that is fixed, the second assertion below should become Is.False.
+        // IsInteractable.Value counts requests rather than assigning, so the group holds exactly one
+        // outstanding decrement per held screen. This used to fail: joining a group also incremented the
+        // count, so the pause's decrement never reached zero and the layer below stayed live.
         [Test]
-        public void PushingAGroupDoesNotActuallyPauseTheLayerBelow()
+        public void PushingAGroupPausesTheLayerBelow()
         {
             _controller.Initialize();
             _controller.CreateNavigateToRequest<FakeScreenA>().Execute();
 
             _controller.PushGroup();
 
-            Assert.That(_controller.Groups[0].IsInteractable.Value, Is.False, "the group considers itself paused");
-            Assert.That(_a.IsInteractable.Value, Is.True, "but the held screen is still interactable");
+            Assert.That(_controller.Groups[0].IsInteractable.Value, Is.False);
+            Assert.That(_a.IsInteractable.Value, Is.False, "and the pause reaches the held screens");
+        }
+
+        [Test]
+        public void AScreenJoiningAPausedGroupIsPausedToo()
+        {
+            _controller.Initialize();
+            _controller.CreateNavigateToRequest<FakeScreenA>().Execute();
+            _controller.PushGroup();
+
+            // _b joins the overlay, which is itself live; _a stays paused under it.
+            _controller.CreateNavigateToRequest<FakeScreenB>().Execute();
+
+            Assert.That(_b.IsInteractable.Value, Is.True, "the top group is not paused");
+            Assert.That(_a.IsInteractable.Value, Is.False);
         }
 
         [Test]

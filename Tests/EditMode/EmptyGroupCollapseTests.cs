@@ -8,12 +8,11 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Tests.EditMode
 {
-    // Known defect: a group pushed but never navigated into cannot collapse. Collapse is driven only by
-    // ScreenGroup's Exited event, which is raised from OnScreenHidden. Such a group has no active screen, so
-    // WindowNavigator.Clear() returns Success=false, no screen hides, Exited never fires, and the group
-    // cannot leave the stack.
+    // A group pushed but never navigated into must still collapse. It has no active screen, so the Exited
+    // event that normally drives collapse can never fire — the controller pops such a group directly.
     //
-    // These tests assert the defect as it stands; invert them when it is fixed.
+    // This used to fail: Exit ran through the navigator, which reported failure on an empty navigator, so
+    // nothing hid, nothing collapsed, and the layer below stayed paused permanently.
     public sealed class EmptyGroupCollapseTests
     {
         private FakeScreenA _a;
@@ -31,38 +30,58 @@ namespace UIFramework.Tests.EditMode
         }
 
         [Test]
-        public void ReturnDoesNotCollapseAGroupThatWasNeverNavigatedInto()
+        public void ReturnCollapsesAGroupThatWasNeverNavigatedInto()
         {
             _controller.Return();
 
-            Assert.That(_controller.Groups, Has.Count.EqualTo(2), "the empty overlay stays on the stack");
+            Assert.That(_controller.Groups, Has.Count.EqualTo(1));
         }
 
         [Test]
-        public void ExitDoesNotCollapseAGroupThatWasNeverNavigatedInto()
+        public void ExitCollapsesAGroupThatWasNeverNavigatedInto()
         {
             _controller.Exit(new ExitRequest());
 
-            Assert.That(_controller.Groups, Has.Count.EqualTo(2), "Exit hits the same dead end as Return");
+            Assert.That(_controller.Groups, Has.Count.EqualTo(1));
         }
 
         [Test]
-        public void TheLayerBelowStaysPausedAfterAFailedCollapse()
+        public void CollapsingReportsTheScreenResumedUnderneath()
         {
-            _controller.Return();
+            NavigateToResponse<Core.Interfaces.IScreen> response = _controller.Return();
 
-            Assert.That(_controller.Groups[0].IsInteractable.Value, Is.False,
-                "nothing restores the base group, so it is paused for good");
+            Assert.That(response.Result.Success, Is.True);
+            Assert.That(response.Result.Active, Is.SameAs(_a), "the caller is told what is active now");
         }
 
         [Test]
-        public void RepeatedReturnsNeverRecover()
+        public void TheLayerBelowResumesAfterCollapse()
         {
             _controller.Return();
-            _controller.Return();
+
+            Assert.That(_controller.Groups[0].IsInteractable.Value, Is.True);
+            Assert.That(_a.IsInteractable.Value, Is.True, "and the resume reaches the held screens");
+        }
+
+        [Test]
+        public void ReturnAtTheBaseGroupLeavesItStanding()
+        {
+            _controller.Return();   // collapses the overlay
+            _controller.Return();   // base group has no history and nothing below it
+
+            Assert.That(_controller.Groups, Has.Count.EqualTo(1));
+            Assert.That(_controller.ActiveGroup.ActiveScreen, Is.SameAs(_a));
+        }
+
+        [Test]
+        public void ACollapsedGroupCanBePushedAgain()
+        {
             _controller.Return();
 
-            Assert.That(_controller.Groups, Has.Count.EqualTo(2), "there is no retry path out of this state");
+            _controller.PushGroup();
+
+            Assert.That(_controller.Groups, Has.Count.EqualTo(2), "the pooled group is reusable");
+            Assert.That(_a.IsInteractable.Value, Is.False, "and pausing still works on the second push");
         }
     }
 }

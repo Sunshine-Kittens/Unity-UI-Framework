@@ -76,6 +76,7 @@ namespace UIFramework.Groups
         private readonly ITimeSource _timeSource;
 
         private int _layerOrder;
+        private bool _screensPaused;
         private GroupPresentationState _presentationState;
 
         private float DeltaTime => _timeSource.GetDeltaTime(TimeMode);
@@ -189,7 +190,9 @@ namespace UIFramework.Groups
             _transitionManager.Reset();
             _history.Clear();
 
+            // After the release loop above, which uses _screensPaused to balance each screen's count.
             _isInteractable.Reset(true);
+            _screensPaused = false;
             _opacity = 1f;
             _layerOrder = 0;
             _presentationState = default;
@@ -219,7 +222,11 @@ namespace UIFramework.Groups
 
             screen.SetGlobalSortOrder(_layerOrder);
             screen.SetOpacity(_opacity);
-            screen.IsInteractable.Value = _isInteractable.Value;
+
+            // IsInteractable.Value counts requests rather than assigning, so join an already-paused group by
+            // taking the one decrement this group is entitled to.
+            if (_screensPaused)
+                screen.IsInteractable.Value = false;
         }
 
         private void ReleaseScreen(IScreen screen)
@@ -229,6 +236,10 @@ namespace UIFramework.Groups
             screen.Hiding -= OnScreenHiding;
             screen.Hidden -= OnScreenHidden;
             screen.ClearNavigator();
+
+            // Give back the decrement taken while held, so the screen leaves balanced.
+            if (_screensPaused)
+                screen.IsInteractable.Value = true;
         }
 
         private void NavigationUpdate(NavigateToResult<IScreen> result)
@@ -277,10 +288,16 @@ namespace UIFramework.Groups
             ScreenHidden?.Invoke(widget as IScreen);
         }
 
-        private void OnIsInteractableUpdated(bool value)
+        // Exactly one outstanding request across all held screens, tracked by _screensPaused: setting Value
+        // increments or decrements a count, so an unmatched pair would leave screens stuck either way.
+        private void OnIsInteractableUpdated(bool interactable)
         {
+            if (interactable == !_screensPaused)
+                return;
+
+            _screensPaused = !interactable;
             foreach (IScreen screen in _held)
-                screen.IsInteractable.Value = value;
+                screen.IsInteractable.Value = interactable;
         }
     }
 }
