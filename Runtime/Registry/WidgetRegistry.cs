@@ -8,9 +8,18 @@ namespace UIFramework.Registry
 {
     public interface IWidgetRegistry<TWidget> where TWidget : class, IWidget
     {
+        public IReadOnlyList<TWidget> Widgets { get; }
+        public bool IsInitialized { get; }
+
         public event Action<TWidget, int> WidgetRegistered;
         public event Action<TWidget, int> WidgetIndexChanged;
         public event Action<TWidget, int> WidgetUnregistered;
+
+        public void Initialize();
+        public void Terminate();
+
+        public void Collect(IEnumerable<IWidgetCollector<TWidget>> collectors);
+        public void Collect(params IWidgetCollector<TWidget>[] collectors);
 
         public void Register(TWidget widget);
         public void SetIndex(TWidget widget, int index);
@@ -30,6 +39,7 @@ namespace UIFramework.Registry
 
         public int IndexOf<TWidgetType>() where TWidgetType : class, TWidget;
         public int IndexOf(Type widgetType);
+        public int IndexOf(TWidget widget);
     }
     
     public class WidgetRegistry<TWidget> : IWidgetRegistry<TWidget> where TWidget : class, IWidget
