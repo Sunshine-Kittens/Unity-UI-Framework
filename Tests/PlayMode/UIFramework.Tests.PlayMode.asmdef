@@ -1,0 +1,23 @@
+{
+    "name": "UIFramework.Tests.PlayMode",
+    "rootNamespace": "UIFramework.Tests",
+    "references": [
+        "UnityEngine.TestRunner",
+        "GUID:499192133d8ba2b41ad7f052c3908382",
+        "GUID:d72495b6350732a4e9fad5880c094132",
+        "GUID:b26bd5fb957641e5a0d48bc4e7da66b9"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
