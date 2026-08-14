@@ -73,18 +73,24 @@ namespace UIFramework.Groups
 
         private readonly HashSet<IScreen> _held = new();
 
+        private readonly ITimeSource _timeSource;
+
         private int _layerOrder;
         private GroupPresentationState _presentationState;
 
-        private float DeltaTime => TimeMode == TimeMode.Unscaled ? Time.unscaledDeltaTime : Time.deltaTime;
+        private float DeltaTime => _timeSource.GetDeltaTime(TimeMode);
 
         // The shared registry is already initialized by the controller; the group only composes navigation
         // over it. Per-screen wiring (navigator back-ref, event subscriptions, group state) happens on join,
         // not here, since registry init is controller-owned and spans every group.
         public ScreenGroup(IWidgetRegistry<IScreen> registry, TimeMode timeMode)
+            : this(registry, timeMode, null) { }
+
+        public ScreenGroup(IWidgetRegistry<IScreen> registry, TimeMode timeMode, ITimeSource timeSource)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             TimeMode = timeMode;
+            _timeSource = timeSource ?? UnityTimeSource.Default;
 
             _navigator = new WindowNavigator<IScreen>(_registry);
             _transitionManager = new TransitionManager(timeMode);

@@ -4,6 +4,7 @@ using System.Threading;
 
 using UIFramework.Collectors;
 using UIFramework.Controllers.Interfaces;
+using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 using UIFramework.Groups;
 using UIFramework.Navigation;
@@ -28,13 +29,18 @@ namespace UIFramework.Controllers
         public IScreenGroup ActiveGroup => _groups.Count > 0 ? _groups[^1] : null;
 
         private readonly IEnumerable<IWidgetCollector<IScreen>> _collectors;
+        private readonly ITimeSource _timeSource;
         private readonly List<ScreenGroup> _groups = new();
         private readonly Stack<ScreenGroup> _pool = new();
 
         public ScreenController(IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode)
+            : this(collectors, timeMode, null) { }
+
+        public ScreenController(IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode, ITimeSource timeSource)
             : base(timeMode)
         {
             _collectors = collectors ?? throw new ArgumentNullException(nameof(collectors));
+            _timeSource = timeSource ?? UnityTimeSource.Default;
         }
 
         protected override void OnInitialize()
@@ -136,7 +142,7 @@ namespace UIFramework.Controllers
 
         private ScreenGroup PushGroupInternal()
         {
-            ScreenGroup group = _pool.Count > 0 ? _pool.Pop() : new ScreenGroup(Registry, TimeMode);
+            ScreenGroup group = _pool.Count > 0 ? _pool.Pop() : new ScreenGroup(Registry, TimeMode, _timeSource);
             // Re-subscribe each push: a pooled group cleared these in Reset() when it was collapsed.
             group.Entering += () => OnGroupEntering(group);
             group.Exited += () => OnGroupExited(group);

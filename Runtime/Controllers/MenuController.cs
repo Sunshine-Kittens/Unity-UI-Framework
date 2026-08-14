@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 using UIFramework.Collectors;
+using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 
 using UnityEngine.Extension;
@@ -12,7 +13,11 @@ namespace UIFramework.Controllers
         protected IWidget BackgroundWidget { get; }
 
         public MenuController(IWidget backgroundWidget, IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode)
-            : base(collectors, timeMode)
+            : this(backgroundWidget, collectors, timeMode, null) { }
+
+        public MenuController(IWidget backgroundWidget, IEnumerable<IWidgetCollector<IScreen>> collectors,
+            TimeMode timeMode, ITimeSource timeSource)
+            : base(collectors, timeMode, timeSource)
         {
             BackgroundWidget = backgroundWidget;
         }
