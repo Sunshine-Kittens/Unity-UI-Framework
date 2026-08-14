@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 using UIFramework.Animation;
+using UIFramework.Core;
 using UIFramework.Core.Interfaces;
 
 using UnityEngine;
@@ -106,6 +107,8 @@ namespace UIFramework.Transitioning
         private sealed class Entry
         {
             private static readonly Stack<Entry> _pool = new();
+
+            static Entry() => PoolRegistry.Register("TransitionEntry", () => _pool.Count, () => _pool.Clear());
 
             public static Entry Get(in Params @params, CancellationTokenSource cts)
             {

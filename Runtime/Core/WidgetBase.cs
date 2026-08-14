@@ -16,6 +16,11 @@ namespace UIFramework.Core
         {
             private static readonly Stack<VisibilityAnimationHandle> _pool = new();
 
+            // Nested in a generic, so this pool is per closed TWidget — the name records which one.
+            static VisibilityAnimationHandle()
+                => PoolRegistry.Register($"VisibilityAnimationHandle<{typeof(TWidget).Name}>",
+                    () => _pool.Count, () => _pool.Clear());
+
             public static VisibilityAnimationHandle Get(AnimationPlayer animationPlayer, CancellationToken cancellationToken)
             {
                 VisibilityAnimationHandle handle = _pool.Count > 0 ? _pool.Pop() : new VisibilityAnimationHandle();

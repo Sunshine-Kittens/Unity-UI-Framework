@@ -17,6 +17,10 @@ namespace UIFramework.Core
     {
         private static readonly Stack<TSelf> _Pool = new();
 
+        static PooledHistoryEvent()
+            => PoolRegistry.Register($"PooledHistoryEvent<{typeof(TSelf).Name}>",
+                () => _Pool.Count, () => _Pool.Clear());
+
         protected static TSelf Get()
         {
             TSelf e = _Pool.Count > 0 ? _Pool.Pop() : new TSelf();
@@ -37,6 +41,9 @@ namespace UIFramework.Core
     internal static class HistoryEventListPool
     {
         private static readonly Stack<List<IHistoryEvent>> _Pool = new();
+
+        static HistoryEventListPool()
+            => PoolRegistry.Register("HistoryEventList", () => _Pool.Count, () => _Pool.Clear());
 
         internal static List<IHistoryEvent> Get()
             => _Pool.Count > 0 ? _Pool.Pop() : new List<IHistoryEvent>();
@@ -147,6 +154,10 @@ namespace UIFramework.Core
     public abstract class PooledHistoryEntry<TSelf> : IHistoryEntry where TSelf : PooledHistoryEntry<TSelf>, new()
     {
         private static readonly Stack<TSelf> _Pool = new();
+
+        static PooledHistoryEntry()
+            => PoolRegistry.Register($"PooledHistoryEntry<{typeof(TSelf).Name}>",
+                () => _Pool.Count, () => _Pool.Clear());
 
         public static TSelf Get(Guid guid)
         {
