@@ -236,6 +236,13 @@ namespace UIFramework.Groups
             screen.Hidden -= OnScreenHidden;
             screen.ClearNavigator();
 
+            // A released screen goes back to the shared registry for another group to acquire, so it must
+            // not still be on screen. Any in-flight transition is cancelled by the visibility change.
+            //
+            // Deliberately after the unsubscribes above: Reset commonly runs from inside the group's own
+            // Exited event, and hiding while still subscribed would re-enter the presentation state machine.
+            screen.SetVisibility(WidgetVisibility.Hidden);
+
             // Give back the decrement taken while held, so the screen leaves balanced.
             if (!_screensInteractable)
                 screen.IsInteractable.Value = true;

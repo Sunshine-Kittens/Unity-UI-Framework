@@ -9,9 +9,11 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Tests.EditMode
 {
-    // Known defect: ScreenGroup.Reset() unsubscribes and clears navigation state but never forces held
-    // screens hidden, so a collapsed group returns still-visible screens to the shared registry for the next
-    // group to acquire.
+    // Resetting a group returns its screens to the shared registry for another group to acquire, so each one
+    // must leave in a clean state: hidden, detached from the navigator, and interactable.
+    //
+    // This used to fail: Reset cleared navigation state but left screens rendered, so the next group acquired
+    // a screen that was already on screen.
     //
     // Reset is controller-facing and not on IScreenGroup, so the group is built directly here.
     public sealed class GroupResetTests
@@ -35,12 +37,11 @@ namespace UIFramework.Tests.EditMode
         }
 
         [Test]
-        public void ResetLeavesReleasedScreensVisible()
+        public void ResetHidesReleasedScreens()
         {
             _group.Reset();
 
-            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible),
-                "the screen is released while still rendered");
+            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Hidden));
         }
 
         [Test]
@@ -52,14 +53,41 @@ namespace UIFramework.Tests.EditMode
         }
 
         [Test]
-        public void AReleasedScreenCarriesItsStateIntoTheNextGroup()
+        public void ResetHidesWithoutReenteringTheGroupsOwnEvents()
+        {
+            bool exited = false;
+            _group.Exited += () => exited = true;
+
+            _group.Reset();
+
+            Assert.That(exited, Is.False,
+                "screens are unsubscribed before being hidden, so the presentation state machine is not re-entered");
+        }
+
+        [Test]
+        public void ReleasedScreensAreLeftInteractableEvenIfTheGroupWasPaused()
+        {
+            _group.SetInteractable(false);
+            Assume.That(_a.IsInteractable.Value, Is.False);
+
+            _group.Reset();
+
+            Assert.That(_a.IsInteractable.Value, Is.True, "the group's outstanding request is given back");
+        }
+
+        [Test]
+        public void AReleasedScreenIsCleanForTheNextGroup()
         {
             _group.Reset();
             ScreenGroup reused = new(_registry, TimeMode.Scaled, new ManualClock());
 
-            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible),
-                "the next group acquires a screen that is already visible");
-            Assert.That(reused.ActiveScreen, Is.Null, "even though the new group has navigated nowhere");
+            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Hidden));
+            Assert.That(reused.ActiveScreen, Is.Null);
+
+            reused.CreateNavigateToRequest(_a).Execute();
+
+            Assert.That(reused.ActiveScreen, Is.SameAs(_a));
+            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible), "and can be shown again");
         }
     }
 }
