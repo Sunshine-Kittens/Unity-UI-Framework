@@ -10,7 +10,6 @@ using UIFramework.Navigation.History;
 using UIFramework.Registry;
 using UIFramework.Transitioning;
 
-using UnityEngine;
 using UnityEngine.Extension;
 
 namespace UIFramework.Groups
@@ -76,7 +75,7 @@ namespace UIFramework.Groups
         private readonly ITimeSource _timeSource;
 
         private int _layerOrder;
-        private bool _screensPaused;
+        private bool _screensInteractable = true;
         private GroupPresentationState _presentationState;
 
         private float DeltaTime => _timeSource.GetDeltaTime(TimeMode);
@@ -190,9 +189,9 @@ namespace UIFramework.Groups
             _transitionManager.Reset();
             _history.Clear();
 
-            // After the release loop above, which uses _screensPaused to balance each screen's count.
+            // After the release loop above, which uses _screensInteractable to balance each screen's count.
             _isInteractable.Reset(true);
-            _screensPaused = false;
+            _screensInteractable = true;
             _opacity = 1f;
             _layerOrder = 0;
             _presentationState = default;
@@ -225,7 +224,7 @@ namespace UIFramework.Groups
 
             // IsInteractable.Value counts requests rather than assigning, so join an already-paused group by
             // taking the one decrement this group is entitled to.
-            if (_screensPaused)
+            if (!_screensInteractable)
                 screen.IsInteractable.Value = false;
         }
 
@@ -238,7 +237,7 @@ namespace UIFramework.Groups
             screen.ClearNavigator();
 
             // Give back the decrement taken while held, so the screen leaves balanced.
-            if (_screensPaused)
+            if (!_screensInteractable)
                 screen.IsInteractable.Value = true;
         }
 
@@ -288,14 +287,14 @@ namespace UIFramework.Groups
             ScreenHidden?.Invoke(widget as IScreen);
         }
 
-        // Exactly one outstanding request across all held screens, tracked by _screensPaused: setting Value
+        // Exactly one outstanding request across all held screens, tracked by _screensInteractable: setting Value
         // increments or decrements a count, so an unmatched pair would leave screens stuck either way.
         private void OnIsInteractableUpdated(bool interactable)
         {
-            if (interactable == !_screensPaused)
+            if (interactable == _screensInteractable)
                 return;
 
-            _screensPaused = !interactable;
+            _screensInteractable = interactable;
             foreach (IScreen screen in _held)
                 screen.IsInteractable.Value = interactable;
         }
