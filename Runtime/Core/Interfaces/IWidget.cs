@@ -37,6 +37,12 @@ namespace UIFramework.Core.Interfaces
         
         public bool IsInitialized { get; }
         public WidgetState State { get; }
+
+        // The lifecycle rule, stated once and enforced in WidgetBase: a widget initializes from any state but
+        // Initialized, and terminates only from Initialized. Call sites that cannot know the current state — a
+        // backend reacting to engine callbacks, or a parent cascading to its children — test these first.
+        public bool CanInitialize { get; }
+        public bool CanTerminate { get; }
         
         public IWidget Parent { get; }
         public int ChildCount { get; }
@@ -63,7 +69,11 @@ namespace UIFramework.Core.Interfaces
         public new IScalarFlag IsEnabled { get; }
         public new IScalarFlag IsInteractable { get; }
 
+        // Initialized fires once the widget is live. Terminating fires before teardown begins, while it
+        // still is; Terminated fires after, by which point its state has been reset. Consumers that bracket
+        // a widget's life wire up on Initialized and unwire on Terminating.
         public event WidgetAction Initialized;
+        public event WidgetAction Terminating;
         public event WidgetAction Terminated;
         
         public event WidgetAction Showing;

@@ -6,9 +6,8 @@ namespace UIFramework.Registry
     // Separated from WidgetRegistry so the registry keeps its collection and lockstep-initialization
     // responsibilities without hard-coding the transition rules.
     //
-    // CanInitialize must return false for WidgetState.Initialized. WidgetBase.Initialize cascades to child
-    // widgets unguarded and both backends throw on an already-initialized widget, so a policy that permits
-    // re-entry on Initialized would break nested widgets.
+    // A policy may be stricter than the widget's own rule but never looser: WidgetBase enforces the rule on
+    // entry and throws, so permitting a transition the widget rejects turns a skipped widget into an exception.
     public interface IWidgetLifecycle<TWidget> where TWidget : class, IWidget
     {
         public bool CanInitialize(TWidget widget);
@@ -20,10 +19,13 @@ namespace UIFramework.Registry
 
     public sealed class WidgetLifecycle<TWidget> : IWidgetLifecycle<TWidget> where TWidget : class, IWidget
     {
-        public bool CanInitialize(TWidget widget) => widget.State == WidgetState.Uninitialized;
+        // Defers to the widget rather than restating the rule. The two used to be written out separately and
+        // drifted: the registry only initialized an Uninitialized widget while the widgets themselves accepted
+        // any state but Initialized, so a widget whose host had cycled was registered and then left dead.
+        public bool CanInitialize(TWidget widget) => widget.CanInitialize;
         public void Initialize(TWidget widget) => widget.Initialize();
 
-        public bool CanTerminate(TWidget widget) => widget.State == WidgetState.Initialized;
+        public bool CanTerminate(TWidget widget) => widget.CanTerminate;
         public void Terminate(TWidget widget) => widget.Terminate();
     }
 }

@@ -34,8 +34,16 @@ namespace UIFramework.TestUtils
         public WidgetState State { get; private set; } = WidgetState.Uninitialized;
         public bool IsInitialized => State == WidgetState.Initialized;
 
+        public bool CanInitialize => State != WidgetState.Initialized;
+        public bool CanTerminate => State == WidgetState.Initialized;
+
         public IWidget Parent => null;
-        public int ChildCount => 0;
+        public int ChildCount => _children.Count;
+        private readonly List<FakeScreen> _children = new();
+
+        // Nested widgets. A hierarchy collector registers a parent and its children in their own right, so the
+        // registry holds both while only the parent's cascade actually drives the child.
+        public void AddChild(FakeScreen child) => _children.Add(child);
 
         public WidgetVisibility Visibility { get; private set; } = WidgetVisibility.Hidden;
         public bool IsVisible => Visibility == WidgetVisibility.Visible && Opacity > 0f;
@@ -56,6 +64,7 @@ namespace UIFramework.TestUtils
         public IScreenNavigator Navigator { get; private set; }
 
         public event WidgetAction Initialized;
+        public event WidgetAction Terminating;
         public event WidgetAction Terminated;
         public event WidgetAction Showing;
         public event WidgetAction Shown;
@@ -70,16 +79,35 @@ namespace UIFramework.TestUtils
         public void RaiseHiding() { Calls.Add(nameof(RaiseHiding)); Hiding?.Invoke(this); }
         public void RaiseHidden() { Calls.Add(nameof(RaiseHidden)); Hidden?.Invoke(this); }
 
+        // Mirrors WidgetBase: guarded on entry, cascading to children that can take the transition, and
+        // raising Terminating before teardown rather than after.
         public void Initialize()
         {
+            if (!CanInitialize)
+                throw new InvalidOperationException($"{GetType().Name} cannot initialize from {State}.");
+
             Calls.Add(nameof(Initialize));
             State = WidgetState.Initialized;
+            foreach (FakeScreen child in _children)
+            {
+                if (child.CanInitialize)
+                    child.Initialize();
+            }
             Initialized?.Invoke(this);
         }
 
         public void Terminate()
         {
+            if (!CanTerminate)
+                throw new InvalidOperationException($"{GetType().Name} cannot terminate from {State}.");
+
             Calls.Add(nameof(Terminate));
+            Terminating?.Invoke(this);
+            foreach (FakeScreen child in _children)
+            {
+                if (child.CanTerminate)
+                    child.Terminate();
+            }
             State = WidgetState.Terminated;
             Terminated?.Invoke(this);
         }
@@ -111,8 +139,8 @@ namespace UIFramework.TestUtils
 
         public void Tick(float deltaTime) => Ticks.Add(deltaTime);
 
-        IReadOnlyWidget IReadOnlyWidget.GetChildAt(int index) => null;
-        public IWidget GetChildAt(int index) => null;
+        IReadOnlyWidget IReadOnlyWidget.GetChildAt(int index) => _children[index];
+        public IWidget GetChildAt(int index) => _children[index];
 
         public void SetLocalSortOrder(int sortOrder) { LocalSortOrder = sortOrder; Calls.Add($"{nameof(SetLocalSortOrder)}:{sortOrder}"); }
         public void SetGlobalSortOrder(int sortOrder) { GlobalSortOrder = sortOrder; Calls.Add($"{nameof(SetGlobalSortOrder)}:{sortOrder}"); }

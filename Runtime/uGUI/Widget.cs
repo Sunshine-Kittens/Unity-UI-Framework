@@ -53,14 +53,9 @@ namespace UIFramework.UGUI
         private Transform _rootUnderCanvas = null;
         protected Vector3 _activeAnchoredPosition { get; private set; } = Vector3.zero;
 
-        // IWidget
-        public sealed override void Initialize()
+        // WidgetBase
+        protected sealed override void AcquireResources()
         {
-            if (State == WidgetState.Initialized)
-            {
-                throw new InvalidOperationException("Widget already initialized.");
-            }
-
             _canvas = GetComponentInParent<Canvas>();
             if (_canvas == null)
             {
@@ -73,19 +68,13 @@ namespace UIFramework.UGUI
             }
             _rootUnderCanvas = rootUnderCanvas;
             _activeAnchoredPosition = RectTransform.anchoredPosition;
-            base.Initialize();
         }
 
-        public sealed override void Terminate()
+        protected sealed override void ReleaseResources()
         {
-            if (State != WidgetState.Initialized)
-            {
-                throw new InvalidOperationException("Widget cannot be terminated.");
-            }
             _canvas = null;
             _rootUnderCanvas = null;
             _activeAnchoredPosition = Vector3.zero;
-            base.Terminate();
         }
 
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)

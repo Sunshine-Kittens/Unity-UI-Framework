@@ -131,6 +131,9 @@ namespace UIFramework.Core
         public bool IsInitialized => State == WidgetState.Initialized;
         public WidgetState State { get; private set; } = WidgetState.Uninitialized;
 
+        public bool CanInitialize => State != WidgetState.Initialized;
+        public bool CanTerminate => State == WidgetState.Initialized;
+
         public IWidget Parent => _parent;
         private TWidget _parent;
 
@@ -157,6 +160,7 @@ namespace UIFramework.Core
         protected readonly ScalarFlag IsInteractableInternal = new(true);
 
         public event WidgetAction Initialized;
+        public event WidgetAction Terminating;
         public event WidgetAction Terminated;
         
         public event WidgetAction Showing;
@@ -171,8 +175,14 @@ namespace UIFramework.Core
         private CancellationTokenSource _queuedAnimationCts;
 
         // IWidget
-        public virtual void Initialize()
+        // Not virtual: the state guard has to run before any backend work, so backends contribute through
+        // AcquireResources/ReleaseResources rather than by wrapping this.
+        public void Initialize()
         {
+            if (!CanInitialize)
+                throw new InvalidOperationException($"{GetType().Name} cannot initialize from {State}.");
+            
+            AcquireResources();
             _isEnabled.OnUpdate += OnIsEnabledUpdated;
             IsInteractableInternal.OnUpdate += OnIsInteractableUpdated;
             SetActive(false);
@@ -180,18 +190,30 @@ namespace UIFramework.Core
             State = WidgetState.Initialized;
             for (int i = 0; i < ChildCount; i++)
             {
-                GetChildAt(i).Initialize();
+                // A child may already be live: collectors register nested widgets in their own right, and
+                // nothing orders a parent ahead of its children.
+                IWidget child = GetChildAt(i);
+                if (child.CanInitialize)
+                    child.Initialize();
             }
             OnInitialize();
             Initialized?.Invoke(this);
         }
 
-        public virtual void Terminate()
+        public void Terminate()
         {
+            if (!CanTerminate)
+                throw new InvalidOperationException($"{GetType().Name} cannot terminate from {State}.");
+            
+            // Ahead of the child cascade, so a parent's teardown brackets its children's.
+            Terminating?.Invoke(this);
             for (int i = 0; i < ChildCount; i++)
             {
-                GetChildAt(i).Terminate();
+                IWidget child = GetChildAt(i);
+                if (child.CanTerminate)
+                    child.Terminate();
             }
+            
             _isEnabled.OnUpdate -= OnIsEnabledUpdated;
             IsInteractableInternal.OnUpdate -= OnIsInteractableUpdated;
             _animationCts?.Cancel();
@@ -204,6 +226,8 @@ namespace UIFramework.Core
             ResetAnimatedProperties();
             _isEnabled.Reset(true);
             IsInteractableInternal.Reset(true);
+            // Last, so the teardown above still runs against live render handles.
+            ReleaseResources();
             State = WidgetState.Terminated;
             OnTerminate();
             Terminated?.Invoke(this);
@@ -451,6 +475,11 @@ namespace UIFramework.Core
         protected abstract void OnIsEnabledUpdated(bool value);
         protected abstract void OnIsInteractableUpdated(bool value);
         protected abstract void SetActive(bool active);
+
+        // The backend's handles onto the render system: uGUI's parent Canvas and root transform, UI Toolkit's
+        // VisualElement. Acquired before the widget goes live and released as it comes down.
+        protected abstract void AcquireResources();
+        protected abstract void ReleaseResources();
 
         protected virtual void OnInitialize() { }
 

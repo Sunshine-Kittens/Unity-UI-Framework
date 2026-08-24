@@ -31,14 +31,9 @@ namespace UIFramework.UIToolkit
         protected VisualElement VisualElement => _visualElement;
         private VisualElement _visualElement;
 
-        // IWidget
-        public sealed override void Initialize()
+        // WidgetBase
+        protected sealed override void AcquireResources()
         {
-            if (State == WidgetState.Initialized)
-            {
-                throw new InvalidOperationException("Widget already initialized.");
-            }
-
             if (!_documentSource.gameObject.activeSelf)
             {
                 Debug.Log("UI Document and all parents enabled by Widget Initialization.", _documentSource);
@@ -69,13 +64,13 @@ namespace UIFramework.UIToolkit
 
             VisualElement visualElement = _documentSource.Document.rootVisualElement.Q(_visualElementName);
             _visualElement = visualElement ?? throw new InvalidOperationException($"Failed to find visual element with name: {_visualElementName}");
-
-            base.Initialize();
         }
 
-        public sealed override void Terminate()
+        // The element belongs to the document's visual tree, which is released and rebuilt whenever that
+        // document cycles. Dropping the reference keeps a dead tree from being mistaken for a live one.
+        protected sealed override void ReleaseResources()
         {
-            base.Terminate(); 
+            _visualElement = null;
         }
         
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
@@ -206,22 +201,27 @@ namespace UIFramework.UIToolkit
         }
 
         // UI Toolkit Widget
+        // Deliberately narrower than CanInitialize: a widget still Uninitialized has not been adopted by a
+        // registry yet, so enabling its document must not bring it up.
         private void DocumentSourceEnabled()
         {
             if (State == WidgetState.Terminated)
-            {
                 Initialize();
-            }
         }
 
+        // Guarded at the call site rather than inside Terminate, which throws on a bad state exactly as the
+        // uGUI backend does: destroying an active document fires OnDisable and then OnDestroy, and both route
+        // here, so the second call is Unity's doing and not caller error.
         private void DocumentSourceDisabled()
         {
-            Terminate();
+            if (CanTerminate)
+                Terminate();
         }
 
         private void DocumentSourceDestroyed()
         {
-            Terminate();
+            if (CanTerminate)
+                Terminate();
         }
         
         protected static void SetInteractable(VisualElement visualElement, bool interactable)
