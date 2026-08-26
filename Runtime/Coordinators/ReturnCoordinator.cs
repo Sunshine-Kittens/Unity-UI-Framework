@@ -57,8 +57,11 @@ namespace UIFramework.Coordinators
             if (!result.Success)
                 return new NavigateToResponse<TWindow>(result, null);
 
+            // Transition hides its source and shows its target, exactly as on the forward path — after the
+            // navigator moves, Previous is the screen being left and Active the one being returned to. The
+            // inverted params then give the returning screen the forward exit animation and vice versa.
             VisibilityTransitionParams transition = transitionEvent.Transition.Invert();
-            Awaitable awaitable = _transitionManager.Transition(transition, result.Active, result.Previous, cancellationToken);
+            Awaitable awaitable = _transitionManager.Transition(transition, result.Previous, result.Active, cancellationToken);
             return new NavigateToResponse<TWindow>(result, awaitable);
         }
     }

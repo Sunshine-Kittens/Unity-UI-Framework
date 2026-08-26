@@ -47,10 +47,10 @@ namespace UIFramework.Tests.EditMode
                 "history records where Return would go");
         }
 
-        // Broken today: the return path hands the transition its source and target swapped relative to the
-        // forward path, so it asks to hide the already-hidden screen and show the already-visible one — a
-        // no-op on every shape of transition. The navigator and history still advance, so the display
-        // diverges from ActiveScreen. Red until the argument order is fixed.
+        // This used to fail: the return path handed the transition its source and target swapped relative
+        // to the forward path, hiding the already-hidden screen and showing the already-visible one — a
+        // no-op on every transition shape, while the navigator and history still advanced, so the display
+        // diverged from ActiveScreen and each Return silently ate a stack level.
         [Test]
         public void ReturnShowsThePreviousScreenAgain()
         {
