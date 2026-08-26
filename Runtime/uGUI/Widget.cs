@@ -20,9 +20,12 @@ namespace UIFramework.UGUI
         
         public override int RenderSortOrder => _canvas != null ? _canvas.sortingOrder : 0;
 
-        public override float Opacity => _canvasGroup.alpha;
+        public override float Opacity => CanvasGroup.alpha;
 
         // uGUI Widget
+        // Components on this GameObject (see RequireComponent), so unlike the parent Canvas they outlive every
+        // lifecycle transition and are fetched lazily rather than acquired. Always read through the properties:
+        // the backing fields stay null until something does.
         public RectTransform RectTransform
         {
             get
@@ -89,9 +92,9 @@ namespace UIFramework.UGUI
             switch (visibility)
             {
                 case WidgetVisibility.Visible:
-                    return new ShowWidgetAnimation(canvasRectTransform, _rectTransform, _activeAnchoredPosition, _canvasGroup, genericAnimation);
+                    return new ShowWidgetAnimation(canvasRectTransform, RectTransform, _activeAnchoredPosition, CanvasGroup, genericAnimation);
                 case WidgetVisibility.Hidden:
-                    return new HideWidgetAnimation(canvasRectTransform, _rectTransform, _activeAnchoredPosition, _canvasGroup, genericAnimation);
+                    return new HideWidgetAnimation(canvasRectTransform, RectTransform, _activeAnchoredPosition, CanvasGroup, genericAnimation);
             }
             throw new InvalidOperationException("Widget visibility is unsupported.");
         }
@@ -115,7 +118,7 @@ namespace UIFramework.UGUI
 
         public sealed override void SetOpacity(float opacity)
         {
-            _canvasGroup.alpha = opacity;
+            CanvasGroup.alpha = opacity;
         }    
 
         // WidgetBase
