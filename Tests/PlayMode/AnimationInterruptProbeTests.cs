@@ -127,5 +127,32 @@ namespace UIFramework.Tests.PlayMode
             Assert.That(gatedAfter, Is.True,
                 "the override counter must still gate input on the animation after an interrupt");
         }
+
+        // Drift compounds per interrupt, so a single-interrupt check can pass while spam navigation still
+        // breaks the gate: three interrupts then a fresh animation pins the compounding case, and the final
+        // assert pins the balance coming back once that animation completes.
+        [UnityTest]
+        public IEnumerator InteractableGateSurvivesRepeatedInterrupts()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                _ = StartFade(WidgetVisibility.Visible);
+                yield return null;
+                Assume.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
+                _fixture.Widget.SetVisibility(WidgetVisibility.Hidden);
+                yield return null;
+            }
+
+            AwaitableProbe last = AwaitableProbe.Watch(StartFade(WidgetVisibility.Visible, 0.1f));
+            yield return null;
+            bool gatedDuring = !_fixture.Widget.IsInteractable.Value;
+            yield return last.WaitForCompletion();
+
+            Debug.Log($"PROBE gated_after_three_interrupts={gatedDuring} balanced_after={_fixture.Widget.IsInteractable.Value}");
+            Assert.That(gatedDuring, Is.True, "the gate still works after repeated interrupts");
+            Assert.That(last.Exception, Is.Null);
+            Assert.That(_fixture.Widget.IsInteractable.Value, Is.True,
+                "and the count balances once the animation completes");
+        }
     }
 }

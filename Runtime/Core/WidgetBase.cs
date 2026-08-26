@@ -264,7 +264,9 @@ namespace UIFramework.Core
             {
                 if (IsAnimating)
                 {
-                    IsInteractableInternal.SetOverrideValue(true);
+                    // No interactable restore here: cancelling unwinds the interrupted animation inline, and
+                    // its own finally gives back the override it took. Restoring here as well drifts the
+                    // count upward, after which animations can never gate input again.
                     _queuedAnimationCts?.Cancel();
                     _animationCts?.Cancel();
                     ResetAnimatedProperties();
@@ -340,10 +342,11 @@ namespace UIFramework.Core
                     _animationCts?.Cancel();
                 }
             }
-            else
-            {
-                IsInteractableInternal.SetOverrideValue(false);
-            }
+            // Taken once per invocation, unconditionally, pairing with the unconditional restore in the
+            // finally below — every call is a balanced pair however it exits. On the interrupt paths the
+            // interrupted animation's own finally has already restored its pair, inline, during the cancel
+            // above; taking this pair only afterwards keeps the two animations' accounting independent.
+            IsInteractableInternal.SetOverrideValue(false);
 
             if (handle == null)
             {
@@ -374,7 +377,7 @@ namespace UIFramework.Core
             catch (OperationCanceledException)
             {
                 // Cancelled, not finished: stop the animation rather than completing it, and hand the
-                // handle back. The finally still restores interactivity and animated state.
+                // handle back. The finally below still runs on this path.
                 CancelAnimationHandle(handle);
                 throw;
             }
