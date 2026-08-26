@@ -75,19 +75,23 @@ namespace UIFramework.Core
                 _animationCompletionSource.TrySetResult();
             }
 
+            // Both teardown paths release the player and clear the field before resolving the completion
+            // source: resolving resumes the awaiting animation inline, and its own completion path re-enters
+            // here — the cleared field makes that re-entry a no-op instead of a double release.
             public void CancelAnimation()
             {
-                if (_animationPlayer != null)
-                {
-                    _animationPlayer.OnComplete -= OnAnimationComplete;
-                    if (_animationPlayer.IsPlaying)
-                    {
-                        _animationPlayer.Stop();
-                        _animationCompletionSource.TrySetCanceled();
-                    }
-                    _animationPlayer.Release();
-                    _animationPlayer = null;
-                }
+                AnimationPlayer player = _animationPlayer;
+                if (player == null)
+                    return;
+
+                _animationPlayer = null;
+                player.OnComplete -= OnAnimationComplete;
+                bool wasPlaying = player.IsPlaying;
+                if (wasPlaying)
+                    player.Stop();
+                player.Release();
+                if (wasPlaying)
+                    _animationCompletionSource.TrySetCanceled();
             }
 
             public void Cancel()
@@ -99,17 +103,18 @@ namespace UIFramework.Core
 
             public void CompleteAnimation()
             {
-                if (_animationPlayer != null)
-                {
-                    _animationPlayer.OnComplete -= OnAnimationComplete;
-                    if (_animationPlayer.IsPlaying)
-                    {
-                        _animationPlayer.Complete();
-                        _animationCompletionSource.TrySetResult();
-                    }
-                    _animationPlayer.Release();
-                    _animationPlayer = null;
-                }
+                AnimationPlayer player = _animationPlayer;
+                if (player == null)
+                    return;
+
+                _animationPlayer = null;
+                player.OnComplete -= OnAnimationComplete;
+                bool wasPlaying = player.IsPlaying;
+                if (wasPlaying)
+                    player.Complete();
+                player.Release();
+                if (wasPlaying)
+                    _animationCompletionSource.TrySetResult();
             }
 
             public void Complete()
@@ -321,16 +326,18 @@ namespace UIFramework.Core
                     _queuedAnimationCts = cts;
                     await currentHandle.CompletedAwaitable;
                 }
+                else if (interruptBehavior == InterruptBehavior.Rewind)
+                {
+                    // Duplicated before cancelling: cancellation unwinds the interrupted animation inline,
+                    // releasing the current handle's player, so a duplicate taken after reads a dead handle.
+                    AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
+                    _animationCts?.Cancel();
+                    animationPlayer.Rewind();
+                    handle = VisibilityAnimationHandle.Get(animationPlayer, cts.Token);
+                }
                 else
                 {
                     _animationCts?.Cancel();
-                }
-
-                if (interruptBehavior == InterruptBehavior.Rewind)
-                {
-                    AnimationPlayer animationPlayer = currentHandle.DuplicateAnimationPlayer();
-                    animationPlayer.Rewind();
-                    handle = VisibilityAnimationHandle.Get(animationPlayer, cts.Token);
                 }
             }
             else

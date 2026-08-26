@@ -258,29 +258,37 @@ namespace UIFramework.Transitioning
                 return;
             
             _skipAll = true;
-            _active.Skip = true;
-            foreach (Entry pending in _pending)
-                pending.Skip = true;
-            
-            Params @params = _active.Params;
-            switch (@params.Transition.Target)
+            try
             {
-                case TransitionTarget.Both:
-                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
-                    break;
-                case TransitionTarget.Target:
-                    await WhenAll.Await(cancellationToken, @params.Target.SkipAnimation());
-                    break;
-                case TransitionTarget.Source:
-                    await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation());
-                    break;
-            }
+                _active.Skip = true;
+                foreach (Entry pending in _pending)
+                    pending.Skip = true;
 
-            while (_active != null || _pending.Count > 0)
-            {
-                await Awaitable.NextFrameAsync(cancellationToken);
+                Params @params = _active.Params;
+                switch (@params.Transition.Target)
+                {
+                    case TransitionTarget.Both:
+                        await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                        break;
+                    case TransitionTarget.Target:
+                        await WhenAll.Await(cancellationToken, @params.Target.SkipAnimation());
+                        break;
+                    case TransitionTarget.Source:
+                        await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation());
+                        break;
+                }
+
+                while (_active != null || _pending.Count > 0)
+                {
+                    await Awaitable.NextFrameAsync(cancellationToken);
+                }
             }
-            _skipAll = false;
+            finally
+            {
+                // Cleared on every exit: a fault or cancellation between set and clear would otherwise leave
+                // every future transition running instant, silently.
+                _skipAll = false;
+            }
         }
         
         public async Awaitable RewindActive(CancellationToken cancellationToken = default)
