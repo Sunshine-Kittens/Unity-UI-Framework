@@ -13,6 +13,7 @@ namespace UIFramework.Tests.EditMode
     // advances the navigator, pushes a history entry, and only then runs Execute — which throws when the
     // target rejects the request data. The entry is left uncommitted in the stack, and History.Pop/TryPeek
     // never check commit state, so it reads as a real back entry.
+    [Category("Characterization")]
     public sealed class HistoryTransactionTests
     {
         private FakeScreenA _a;

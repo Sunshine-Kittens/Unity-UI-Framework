@@ -15,6 +15,7 @@ namespace UIFramework.Tests.EditMode
     //
     // FakeScreen.AnimateVisibility throws, so reaching Visible without an exception is itself proof that the
     // instant path was taken.
+    [Category("Characterization")]
     public sealed class NavigationDefaultTests
     {
         private FakeScreenA _a;

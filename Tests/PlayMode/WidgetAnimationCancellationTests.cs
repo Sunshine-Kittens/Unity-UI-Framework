@@ -40,11 +40,14 @@ namespace UIFramework.Tests.PlayMode
         }
 
         private Awaitable StartFadeIn(CancellationToken cancellationToken, float length = 2f)
+            => StartFade(WidgetVisibility.Visible, cancellationToken, length);
+
+        private Awaitable StartFade(WidgetVisibility visibility, CancellationToken cancellationToken, float length = 2f)
         {
-            IAnimation fade = _fixture.Widget.GetGenericAnimation(GenericAnimation.Fade, WidgetVisibility.Visible);
+            IAnimation fade = _fixture.Widget.GetGenericAnimation(GenericAnimation.Fade, visibility);
             Assume.That(fade, Is.Not.Null, "the uGUI backend supplies a generic fade");
 
-            return _fixture.Widget.AnimateVisibility(WidgetVisibility.Visible)
+            return _fixture.Widget.AnimateVisibility(visibility)
                 .WithAnimation(fade)
                 .WithLength(length)
                 .WithCancellation(cancellationToken)
@@ -129,11 +132,14 @@ namespace UIFramework.Tests.PlayMode
                 yield return CancelMidAnimation(cancelled, cts);
             }
 
-            AwaitableProbe second = AwaitableProbe.Watch(StartFadeIn(CancellationToken.None, 0.1f));
+            // The cancelled show already flipped Visibility to Visible, so the second animation must go the
+            // other way — animating to Visible again would early-return without running anything.
+            AwaitableProbe second = AwaitableProbe.Watch(StartFade(WidgetVisibility.Hidden, CancellationToken.None, 0.1f));
             yield return second.WaitForCompletion();
 
             Assert.That(second.Exception, Is.Null, "a cancelled animation leaves no state behind");
-            Assert.That(_fixture.Widget.Visibility, Is.EqualTo(WidgetVisibility.Visible));
+            Assert.That(_fixture.Widget.Visibility, Is.EqualTo(WidgetVisibility.Hidden));
+            Assert.That(_fixture.Widget.IsAnimating, Is.False);
         }
     }
 }

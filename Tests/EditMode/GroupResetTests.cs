@@ -55,13 +55,20 @@ namespace UIFramework.Tests.EditMode
         [Test]
         public void ResetHidesWithoutReenteringTheGroupsOwnEvents()
         {
+            // ScreenHidden is the discriminating signal: it fires on every held screen's Hidden while
+            // subscribed, so hiding before unsubscribing would raise it. Exited alone cannot fail here —
+            // the group sits in Entered, and Exited only fires out of Exiting.
             bool exited = false;
+            bool screenHidden = false;
             _group.Exited += () => exited = true;
+            _group.ScreenHidden += _ => screenHidden = true;
 
             _group.Reset();
 
+            Assert.That(screenHidden, Is.False,
+                "screens are unsubscribed before being hidden, so the group's own events do not re-fire");
             Assert.That(exited, Is.False,
-                "screens are unsubscribed before being hidden, so the presentation state machine is not re-entered");
+                "and the presentation state machine is not re-entered");
         }
 
         [Test]

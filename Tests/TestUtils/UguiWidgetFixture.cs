@@ -18,11 +18,7 @@ namespace UIFramework.TestUtils
         public Canvas Canvas { get; }
         public Widget Widget { get; }
 
-        // primeCanvasGroup works around a defect in the uGUI backend: Opacity, SetOpacity and
-        // GetGenericAnimation read the _canvasGroup backing field rather than the lazy CanvasGroup property,
-        // and nothing in Initialize() populates it — so a freshly initialized widget throws on all three.
-        // Reading the property once primes the field. Pass false to exercise the defect itself.
-        public UguiWidgetFixture(bool initialize = true, bool primeCanvasGroup = true)
+        public UguiWidgetFixture(bool initialize = true)
         {
             Root = new GameObject("TestCanvas", typeof(RectTransform), typeof(Canvas));
             Canvas = Root.GetComponent<Canvas>();
@@ -33,9 +29,6 @@ namespace UIFramework.TestUtils
 
             if (initialize)
                 Widget.Initialize();
-
-            if (primeCanvasGroup)
-                _ = Widget.CanvasGroup;
         }
 
         // Name the handle pool for this backend. Both backends declare a type called Widget, so the
