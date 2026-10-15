@@ -1,11 +1,17 @@
 using System;
+using System.Collections.Generic;
 
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace UIFramework.UGUI
 {
     public class UGUIGenericWindowAnimation : GenericWindowAnimation
     {
+        // Shared by every slide's Prepare, which runs on the main thread, so measuring allocates nothing.
+        private static readonly List<Graphic> _graphics = new List<Graphic>();
+        private static readonly Vector3[] _corners = new Vector3[4];
+
         private RectTransform _displayRectTransform = null;
         private RectTransform _rectTransform = null;
         private CanvasGroup _canvasGroup = null;
@@ -136,8 +142,7 @@ namespace UIFramework.UGUI
                 Vector3 displayWorldBottomLeftCorner = _displayRectTransform.GetWorldBottomLeftCorner();
                 Vector3 displayLocalBottomLeftCorner = _rectTransform.InverseTransformPoint(displayWorldBottomLeftCorner);
 
-                Vector3 localBottomRightCorner = _rectTransform.GetLocalBottomRightCorner();
-                float distance = displayLocalBottomLeftCorner.x - localBottomRightCorner.x;
+                float distance = displayLocalBottomLeftCorner.x - GetLocalDrawnRect().xMax;
                 _offDisplayLeft = new Vector2(_activeAnchoredPosition.x + distance, _activeAnchoredPosition.y);
             }
         }
@@ -149,8 +154,7 @@ namespace UIFramework.UGUI
                 Vector3 displayWorldBottomRightCorner = _displayRectTransform.GetWorldBottomRightCorner();
                 Vector3 displayLocalBottomRightCorner = _rectTransform.InverseTransformPoint(displayWorldBottomRightCorner);
 
-                Vector3 localBottomLeftCorner = _rectTransform.GetLocalBottomLeftCorner();
-                float distance = displayLocalBottomRightCorner.x - localBottomLeftCorner.x;
+                float distance = displayLocalBottomRightCorner.x - GetLocalDrawnRect().xMin;
                 _offDisplayRight = new Vector2(_activeAnchoredPosition.x + distance, _activeAnchoredPosition.y);
             }
         }
@@ -162,8 +166,7 @@ namespace UIFramework.UGUI
                 Vector3 displayWorldBottomLeftCorner = _displayRectTransform.GetWorldBottomLeftCorner();
                 Vector3 displayLocalBottomLeftCorner = _rectTransform.InverseTransformPoint(displayWorldBottomLeftCorner);
 
-                Vector3 localTopLeftCorner = _rectTransform.GetLocalTopLeftCorner();
-                float distance = displayLocalBottomLeftCorner.y - localTopLeftCorner.y;
+                float distance = displayLocalBottomLeftCorner.y - GetLocalDrawnRect().yMax;
                 _offDisplayBottom = new Vector2(_activeAnchoredPosition.x, _activeAnchoredPosition.y + distance);
             }
         }
@@ -175,10 +178,74 @@ namespace UIFramework.UGUI
                 Vector3 displayWorldTopLeftCorner = _displayRectTransform.GetWorldTopLeftCorner();
                 Vector3 displayLocalTopLeftCorner = _rectTransform.InverseTransformPoint(displayWorldTopLeftCorner);
 
-                Vector3 localBottomLeftCorner = _rectTransform.GetLocalBottomLeftCorner();
-                float distance = displayLocalTopLeftCorner.y - localBottomLeftCorner.y;
+                float distance = displayLocalTopLeftCorner.y - GetLocalDrawnRect().yMin;
                 _offDisplayTop = new Vector2(_activeAnchoredPosition.x, _activeAnchoredPosition.y + distance);
             }
+        }
+
+        /// <summary>
+        /// The window's rect grown to take in every graphic it shows, in its own space. A slide moves the window until all of
+        /// that is off the display, so a child drawn past the window's edge doesn't linger on screen and then vanish.
+        /// </summary>
+        private Rect GetLocalDrawnRect()
+        {
+            Rect rect = _rectTransform.rect;
+            float xMin = rect.xMin;
+            float xMax = rect.xMax;
+            float yMin = rect.yMin;
+            float yMax = rect.yMax;
+
+            _rectTransform.GetComponentsInChildren(true, _graphics);
+            for (int i = 0; i < _graphics.Count; i++)
+            {
+                Graphic graphic = _graphics[i];
+                if (!graphic.enabled || !TryGetShownArea(graphic.rectTransform, out RectTransform area))
+                    continue;
+
+                area.GetWorldCorners(_corners);
+                for (int corner = 0; corner < _corners.Length; corner++)
+                {
+                    Vector3 local = _rectTransform.InverseTransformPoint(_corners[corner]);
+                    xMin = Mathf.Min(xMin, local.x);
+                    xMax = Mathf.Max(xMax, local.x);
+                    yMin = Mathf.Min(yMin, local.y);
+                    yMax = Mathf.Max(yMax, local.y);
+                }
+            }
+            _graphics.Clear();
+
+            return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+        }
+
+        /// <summary>
+        /// Where a graphic shows once the window does: nowhere if it or a parent below the window is inactive (the window
+        /// itself opens inactive), else its own rect, or the rect of the nearest mask that clips it, so a long scroll list
+        /// doesn't stretch the slide.
+        /// </summary>
+        private bool TryGetShownArea(RectTransform graphic, out RectTransform area)
+        {
+            area = graphic;
+            bool clipped = false;
+            for (Transform current = graphic; current != null && current != _rectTransform; current = current.parent)
+            {
+                if (!current.gameObject.activeSelf)
+                    return false;
+
+                if (!clipped && current != graphic && IsMask(current))
+                {
+                    area = (RectTransform)current;
+                    clipped = true;
+                }
+            }
+            return true;
+        }
+
+        private static bool IsMask(Transform transform)
+        {
+            if (transform.TryGetComponent(out RectMask2D rectMask) && rectMask.enabled)
+                return true;
+
+            return transform.TryGetComponent(out Mask mask) && mask.enabled;
         }
     }
 }
