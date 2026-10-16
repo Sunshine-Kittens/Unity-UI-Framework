@@ -69,8 +69,9 @@ namespace UIFramework.UGUI
         [SerializeField] private Color _gradientColor = Color.white;
         [SerializeField, Range(0, 90)] private float _gradientAngle = 0.0F;
 
-        // Internally serialized properties
-        [SerializeField] private Vector4 _cornerRadii = Vector4.zero;
+        // Derived from the rect size on every refresh, so not saved: a saved copy records whatever size layout had at
+        // that moment and changes scenes and prefab overrides nobody edited.
+        [NonSerialized] private Vector4 _cornerRadii = Vector4.zero;
 
         public override Material materialForRendering
         {
