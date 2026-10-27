@@ -73,6 +73,22 @@ namespace UIFramework.UGUI
         // that moment and changes scenes and prefab overrides nobody edited.
         [NonSerialized] private Vector4 _cornerRadii = Vector4.zero;
 
+        // The shader compares this alpha with the vertex alpha to find the fade a CanvasGroup passes down, which the
+        // border has to follow too, so a change to it refreshes the material.
+        public override Color color
+        {
+            get => base.color;
+            set
+            {
+                bool alphaChanged = !Mathf.Approximately(base.color.a, value.a);
+                base.color = value;
+                if (alphaChanged && enabled && Validate())
+                {
+                    Refresh();
+                }
+            }
+        }
+
         public override Material materialForRendering
         {
             get
@@ -242,7 +258,7 @@ namespace UIFramework.UGUI
                         break;
                 }
                 material.SetVector(_shaderProp_radii, _cornerRadii);
-                material.SetVector(_shaderProp_sizeAndBorder, new Vector4(rect.width, rect.height, _border, 0));
+                material.SetVector(_shaderProp_sizeAndBorder, new Vector4(rect.width, rect.height, _border, color.a));
                 material.SetColor(_shaderProp_borderColor, _borderColor);
                 material.EnableKeyword(_shaderKeyword_RoundedCorners);
             }
