@@ -17,9 +17,8 @@ namespace UIFramework.Controllers
     // controller. The host builds the pure-C# controller on enable, terminates it on disable, ticks it via
     // the UpdateManager, and exposes the controller plus navigation entry points for scene code.
     //
-    // Repeated enable/disable is clean for uGUI: screens terminated by one controller are re-initialized when
-    // the next adopts them. Not yet for UI Toolkit — a screen whose UIDocument cycles rebuilds its visual tree,
-    // and the group's opacity and layer band are not re-applied to the new one.
+    // Navigation state does not survive a disable: the groups are discarded and the screens terminated, and
+    // the next controller re-initializes the screens as it adopts them.
     public class ScreenControllerHost : MonoBehaviour, IUpdatable
     {
         [Tooltip("Collectors defining which screens this controller manages. Controller-level and editor-time.")]

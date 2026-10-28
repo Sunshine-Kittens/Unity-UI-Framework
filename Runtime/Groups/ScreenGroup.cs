@@ -199,9 +199,9 @@ namespace UIFramework.Groups
             return false;
         }
 
-        // Returns the group to a clean state for pooled reuse. Assumes its transitions have already settled
-        // (the group exited) — see TransitionManager.Reset. Releases every held screen and drops external
-        // event subscribers so a reused instance carries no stale controller wiring.
+        // Returns the group to a clean state for pooled reuse, commonly from inside its own Exited event, where
+        // hides and transitions can still be in flight — see TransitionManager.Reset. Releases every held screen
+        // and drops external event subscribers so a reused instance carries no stale controller wiring.
         public void Reset()
         {
             foreach (IScreen screen in _held)
@@ -268,7 +268,7 @@ namespace UIFramework.Groups
             screen.ClearNavigator();
 
             // A released screen goes back to the shared registry for another group to acquire, so it must
-            // not still be on screen. Any in-flight transition is cancelled by the visibility change.
+            // not still be on screen. A show in flight is cancelled; a hide in flight is skipped to its end.
             //
             // Deliberately after the unsubscribes above: Reset commonly runs from inside the group's own
             // Exited event, and hiding while still subscribed would re-enter the presentation state machine.

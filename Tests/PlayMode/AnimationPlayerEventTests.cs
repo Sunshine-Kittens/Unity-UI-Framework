@@ -15,9 +15,9 @@ namespace UIFramework.Tests.PlayMode
     // it ever gains its own test assembly; they are here because the playground is where both are integrated
     // and because a regression here stops every animation in this framework.
     //
-    // The player resolves the next event index once per play/rewind and walks it as time passes. Getting the
-    // "no events remain" sentinel wrong made the forward loop index -1, which threw every frame — and since
-    // every animation in this framework reports zero events, that was every animation.
+    // The player resolves the next event index once per play/rewind and walks it as time passes. When no
+    // events remain, that index is a sentinel outside the event array and the walk must not dereference it;
+    // every animation in this framework reports zero events, so every animation takes that path.
     public sealed class AnimationPlayerEventTests
     {
         private PoolScope _pools;

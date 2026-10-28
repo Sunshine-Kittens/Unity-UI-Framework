@@ -206,17 +206,18 @@ namespace UIFramework.UIToolkit
         }
 
         // UI Toolkit Widget
-        // Deliberately narrower than CanInitialize: a widget still Uninitialized has not been adopted by a
-        // registry yet, so enabling its document must not bring it up.
+        // Deliberately narrower than CanInitialize: enabling the document restores only a Terminated widget,
+        // whoever terminated it, so an Uninitialized one waits for its first explicit Initialize.
         private void DocumentSourceEnabled()
         {
             if (State == WidgetState.Terminated)
                 Initialize();
         }
 
-        // Guarded at the call site rather than inside Terminate, which throws on a bad state exactly as the
-        // uGUI backend does: destroying an active document fires OnDisable and then OnDestroy, and both route
-        // here, so the second call is Unity's doing and not caller error.
+        // Guarded because Terminate throws on a bad state and the widget may not be live: never initialized,
+        // or terminated by its registry or a parent's cascade. DocumentSourceDestroyed is guarded likewise, since
+        // destroying an active document fires OnDisable and then OnDestroy, and that second call is Unity's doing,
+        // not caller error.
         private void DocumentSourceDisabled()
         {
             if (CanTerminate)

@@ -11,8 +11,8 @@ namespace UIFramework.Tests.EditMode
     // A group pushed but never navigated into must still collapse. It has no active screen, so the Exited
     // event that normally drives collapse can never fire — the controller pops such a group directly.
     //
-    // This used to fail: Exit ran through the navigator, which reported failure on an empty navigator, so
-    // nothing hid, nothing collapsed, and the layer below stayed paused permanently.
+    // Routed through the navigator, Exit would report failure on an empty navigator, so nothing would hide or
+    // collapse and the layer below would stay paused permanently.
     public sealed class EmptyGroupCollapseTests
     {
         private PoolScope _pools;

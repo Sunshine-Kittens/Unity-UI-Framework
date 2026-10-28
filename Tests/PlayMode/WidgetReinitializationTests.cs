@@ -15,8 +15,9 @@ namespace UIFramework.Tests.PlayMode
 {
     // A widget must come out of terminate -> re-initialize exactly as it went into its first initialize:
     // animated properties restored, the backend's interactivity in step with the flags, and the resting pose
-    // re-captured from clean values. These all used to fail — animations left alpha/position/rotation/scale
-    // wherever they stopped, nothing restored them, and a re-initialize adopted the displaced pose as home.
+    // re-captured from clean values. Animations displace alpha/position/rotation/scale, so every way an
+    // animation ends (completion, interruption, terminate) must restore them; a terminate that skips the
+    // restore leaves the displaced pose for a re-initialize to adopt as home.
     public sealed class WidgetReinitializationTests
     {
         private static readonly Vector2 _HomePosition = new(31f, -17f);
@@ -172,8 +173,8 @@ namespace UIFramework.Tests.PlayMode
             GameObject root = new("Canvas", typeof(RectTransform), typeof(Canvas));
             try
             {
-                // A sibling ahead of the widget, so the live read is 1. A read after release throws today, since the
-                // root is dereferenced unguarded; were it null-guarded like the render sort order, it would read 0,
+                // A sibling ahead of the widget, so the live read is 1. A read after release throws, since the root
+                // is dereferenced unguarded; were it null-guarded like the render sort order, it would read 0,
                 // which 1 stays distinct from.
                 new GameObject("Sibling", typeof(RectTransform)).transform.SetParent(root.transform, false);
                 GameObject widgetObject = new("Widget", typeof(RectTransform), typeof(CanvasGroup));

@@ -154,8 +154,10 @@ namespace UIFramework.Controllers
         }
 
         // Normally the group's Exited event drives the pop + resume-below in OnGroupExited. A group with no
-        // active screen has nothing to hide, so that event can never fire and Exit would be a silent no-op —
-        // leaving the group stacked and the layer below paused for good. Pop it directly instead.
+        // active screen has either never shown one, so Exited can never fire, or has already been exited and its
+        // last hide has raised no Hidden: still in flight, cancelled, or a no-op on a screen already hidden (one
+        // whose queued show was cancelled). Pop it directly either way rather than leave the group stacked and
+        // the layer below paused; Reset skips a hide still in flight and pre-empts its Exited.
         private NavigateToResponse<IScreen> ExitGroup(ScreenGroup group, in ExitRequest request)
         {
             if (group.ActiveScreen != null)
@@ -217,9 +219,9 @@ namespace UIFramework.Controllers
         private void PopGroupAt(int index, ScreenGroup group)
         {
             _groups.RemoveAt(index);
-            // On the Exited path this runs from within the group's callback (fired as its last screen
-            // finished hiding), so the hide transition has settled and releasing held screens, history and
-            // the pooled primitives is safe.
+            // On the Exited path this runs inside the Hidden event of the first held screen to finish hiding once
+            // the group is exiting, before an animated hide completes its handle. The rest of that transition,
+            // and any other hides and transitions, can still be in flight when Reset releases the held screens.
             group.Reset();
             _pool.Push(group);
             RecomputeBands();

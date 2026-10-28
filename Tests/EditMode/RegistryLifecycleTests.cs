@@ -35,8 +35,8 @@ namespace UIFramework.Tests.EditMode
             _registry.WidgetTerminated += widget => _announced.Add($"term:{widget.GetType().Name}");
         }
 
-        // This used to fail: the registry only initialized widgets in the Uninitialized state, so a widget
-        // whose host had been disabled and re-enabled was registered and then left dead.
+        // A widget whose host has been disabled and re-enabled is Terminated, not Uninitialized; a registry
+        // that initialized only Uninitialized widgets would register it and leave it dead.
         [Test]
         public void ATerminatedWidgetIsInitializedWhenRegistered()
         {
@@ -167,7 +167,7 @@ namespace UIFramework.Tests.EditMode
 
         // A hierarchy collector registers a parent and its nested children, so the parent's cascade drives a
         // child the registry is also holding. The relay hears that cascade, and the registry then reaches the
-        // child in its own right — this used to announce it twice and break the alternation above.
+        // child in its own right — announcing on both would report it twice and break the alternation above.
         [Test]
         public void ACascadeInitializedChildIsAnnouncedOnce()
         {

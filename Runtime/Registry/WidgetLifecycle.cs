@@ -19,9 +19,8 @@ namespace UIFramework.Registry
 
     public sealed class WidgetLifecycle<TWidget> : IWidgetLifecycle<TWidget> where TWidget : class, IWidget
     {
-        // Defers to the widget rather than restating the rule. The two used to be written out separately and
-        // drifted: the registry only initialized an Uninitialized widget while the widgets themselves accepted
-        // any state but Initialized, so a widget whose host had cycled was registered and then left dead.
+        // Defers to the widget rather than restating the rule: two copies can drift, and a policy that rejects
+        // a Terminated widget would leave one whose host has cycled registered but dead.
         public bool CanInitialize(TWidget widget) => widget.CanInitialize;
         public void Initialize(TWidget widget) => widget.Initialize();
 

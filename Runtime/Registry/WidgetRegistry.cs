@@ -116,9 +116,9 @@ namespace UIFramework.Registry
         }
         
         // Ordered so a throw leaves the registry untouched: validate without mutating, bring the widget up
-        // (its initialization is the one step here that can fail), and only then record it. Events fire last,
-        // Registered before Initialized, matching the Initialize() path — handlers on either see the widget
-        // fully listed.
+        // (its initialization is the one step here that can fail), and only then record it. Its own events
+        // fire last, Registered before Initialized, matching the Initialize() path — handlers on either see it
+        // fully listed. Registered children brought up by its cascade are announced earlier, before it is listed.
         public void Register(TWidget widget)
         {
             if (widget == null) throw new ArgumentNullException(nameof(widget));
@@ -163,8 +163,9 @@ namespace UIFramework.Registry
         }
 
         // Mirror of Register: teardown first, while the registry still answers lookups for the handlers it
-        // notifies — and a widget that refuses to terminate leaves the registry untouched. The index check
-        // afterwards tolerates a WidgetTerminated handler having re-entered and completed this removal.
+        // notifies, so a Terminate that throws leaves the widget registered. A skipped teardown (registry
+        // uninitialized, or the lifecycle declines) removes the widget as it stands, with no WidgetTerminated.
+        // The index check tolerates a WidgetTerminated handler having re-entered and completed this removal.
         public void Unregister(TWidget widget)
         {
             if (widget == null) throw new ArgumentNullException(nameof(widget));
@@ -358,9 +359,10 @@ namespace UIFramework.Registry
             _isInitialized = false;
         }
 
-        // WidgetInitialized/WidgetTerminated are raised only by relaying the widget's own events, so there is
-        // exactly one raise site per transition no matter who drove it, and the ordering is always the widget's:
-        // after it is live, before it is torn down.
+        // WidgetInitialized/WidgetTerminated are relayed from the widget's own events, whoever drove the
+        // transition, so the ordering is always the widget's: after it is live, before it is torn down.
+        // WidgetInitialized is also offered directly by Register and Initialize(), for a widget already live
+        // when it is listed or when the registry initializes.
         private void SubscribeToLifecycle(TWidget widget)
         {
             widget.Initialized += OnWidgetInitialized;
@@ -382,8 +384,9 @@ namespace UIFramework.Registry
         // twice: a registered child initialized by its parent's cascade is heard through the relay and then
         // offered again when the loop reaches the child in its own right.
         //
-        // Both are gated on _isInitialized the way the registry's own lifecycle hooks are, since subscriptions
-        // outlive initialization: an uninitialized registry holds widgets but does not speak for them.
+        // Both are gated on _isInitialized the way the registry's own lifecycle hooks are, since a widget is
+        // subscribed when it is registered, which can precede Initialize(): an uninitialized registry holds
+        // widgets but does not speak for them.
         private void AnnounceInitialized(TWidget widget)
         {
             if (_isInitialized && widget.State == WidgetState.Initialized && _announced.Add(widget))

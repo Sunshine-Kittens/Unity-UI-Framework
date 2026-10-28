@@ -168,8 +168,8 @@ namespace UIFramework.TestUtils
         public void SetNavigator(IScreenNavigator navigator) { Navigator = navigator; Calls.Add(nameof(SetNavigator)); }
         public void ClearNavigator() { Navigator = null; Calls.Add(nameof(ClearNavigator)); }
 
-        // Null by default — consumers treat "no default animation" as "show instantly". Assign to check
-        // whether the framework ever resolves a default on the entry side, which it currently does not.
+        // Null by default — consumers treat "no default animation" as "show instantly". Assign one to check
+        // whether navigation resolves a target's default entry animation.
         public IAnimation DefaultVisibleAnimation;
         public IAnimation DefaultHiddenAnimation;
 

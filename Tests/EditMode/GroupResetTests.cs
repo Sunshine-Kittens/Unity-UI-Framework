@@ -12,8 +12,8 @@ namespace UIFramework.Tests.EditMode
     // Resetting a group returns its screens to the shared registry for another group to acquire, so each one
     // must leave in a clean state: hidden, detached from the navigator, and interactable.
     //
-    // This used to fail: Reset cleared navigation state but left screens rendered, so the next group acquired
-    // a screen that was already on screen.
+    // A Reset that clears navigation state but leaves screens rendered hands the next group a screen that is
+    // already on screen.
     //
     // Reset is controller-facing and not on IScreenGroup, so the group is built directly here.
     public sealed class GroupResetTests

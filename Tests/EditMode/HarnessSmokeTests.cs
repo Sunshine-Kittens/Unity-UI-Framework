@@ -9,8 +9,7 @@ using UnityEngine.Extension;
 
 namespace UIFramework.Tests.EditMode
 {
-    // Proves the fakes drive the real controller, registry, group and navigator from edit mode. Asserts
-    // current behaviour only — characterization of the known defects lands separately.
+    // Proves the fakes drive the real controller, registry, group and navigator from edit mode.
     public sealed class HarnessSmokeTests
     {
         private ManualClock _clock;
@@ -80,8 +79,8 @@ namespace UIFramework.Tests.EditMode
         }
 
         // IsInteractable.Value counts requests rather than assigning, so the group holds exactly one
-        // outstanding decrement per held screen. This used to fail: joining a group also incremented the
-        // count, so the pause's decrement never reached zero and the layer below stayed live.
+        // outstanding decrement per held screen. A join that also incremented the count would leave the
+        // pause's decrement short of zero and the layer below live.
         [Test]
         public void PushingAGroupPausesTheLayerBelow()
         {

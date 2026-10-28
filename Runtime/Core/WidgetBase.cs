@@ -191,7 +191,7 @@ namespace UIFramework.Core
             _isEnabled.OnUpdate += OnIsEnabledChanged;
             IsInteractableInternal.OnUpdate += OnIsInteractableUpdated;
             // Level push: subscriptions only deliver future edges, and after a terminate/re-initialize
-            // cycle the backend still holds the previous lifecycle's values. Both mirrors are pure —
+            // cycle the backend still holds the previous lifecycle's values. Both mirrors are idempotent —
             // the override-channel coupling lives in OnIsEnabledChanged, which is edge-only.
             OnIsEnabledUpdated(_isEnabled.Value);
             OnIsInteractableUpdated(IsInteractableInternal.Value);
@@ -240,7 +240,9 @@ namespace UIFramework.Core
             OnTerminate();
             Terminated?.Invoke(this);
             // Last, mirroring Initialize (acquire first, hooks after): the base teardown, the OnTerminate
-            // hook and Terminated subscribers all still run against live render handles.
+            // hook and Terminated subscribers run against live render handles. Re-entry breaks this: a nested
+            // Terminate of this widget, from a Terminating handler or the child cascade, releases them first,
+            // and a Terminated subscriber that re-initializes has its fresh handles released here.
             ReleaseResources();
         }
 
@@ -348,10 +350,10 @@ namespace UIFramework.Core
                     _animationCts?.Cancel();
                 }
             }
-            // Taken once per invocation, unconditionally, pairing with the unconditional restore in the
-            // finally below — every call is a balanced pair however it exits. On the interrupt paths the
-            // interrupted animation's own finally has already restored its pair, inline, during the cancel
-            // above; taking this pair only afterwards keeps the two animations' accounting independent.
+            // Taken at most once per invocation, pairing with the unconditional restore in the finally below — a
+            // balanced pair for every call that reaches the try. On the interrupt paths the interrupted
+            // animation's own finally has already restored its pair, inline, during the cancel above; taking
+            // this pair only afterwards keeps the two animations' accounting independent.
             IsInteractableInternal.SetOverrideValue(false);
 
             if (handle == null)
@@ -400,8 +402,8 @@ namespace UIFramework.Core
             }
             else
             {
-                // Matches SetVisibility's hidden end state, deactivating before the events fire: without
-                // this an animated hide left the object active — invisible, but still receiving input.
+                // Matches SetVisibility's hidden end state, deactivating before the events fire: the finally
+                // above restores the resting pose and opacity, so a still-active widget would reappear.
                 SetActive(false);
                 Hidden?.Invoke(this);
                 OnHidden();
@@ -493,7 +495,7 @@ namespace UIFramework.Core
         protected abstract void SortAgainst(IWidget target, int direction);
 
         // Backend mirrors: apply the value to the render objects and do nothing else. They are invoked on
-        // every change and once more as a level push during Initialize, so they must be side-effect free.
+        // every change and once more as a level push during Initialize, so they must be idempotent.
         protected abstract void OnIsEnabledUpdated(bool value);
         protected abstract void OnIsInteractableUpdated(bool value);
 
@@ -550,8 +552,8 @@ namespace UIFramework.Core
             ReleaseAnimationHandle(handle);
         }
 
-        // Clearing the active handle is what makes IsAnimating false again; releasing returns it to the pool.
-        // Both must happen on every exit path, or the widget stays stuck animating and the handle leaks.
+        // Releasing returns the handle to the shared pool, where the next Get re-initializes it; clearing the
+        // field first keeps this widget from reading another animation's state through a stale reference.
         private void ReleaseAnimationHandle(VisibilityAnimationHandle handle)
         {
             if (handle == _animationHandle)

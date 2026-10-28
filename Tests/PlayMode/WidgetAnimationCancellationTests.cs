@@ -18,8 +18,9 @@ namespace UIFramework.Tests.PlayMode
     // cancellation it asked for, the widget stops reporting itself as animating, the interactable override
     // taken on entry is given back, and the pooled handle returns to the pool.
     //
-    // All four used to fail. Cancellation settles the handle's completion sources, and the teardown then
-    // called the non-Try setters on them, so it threw partway through and skipped the rest of the cleanup.
+    // Cancellation has already settled the handle's completion sources, so the teardown must use the Try
+    // setters on them: a non-Try setter throws on the settled source, replacing the cancellation the caller
+    // sees and skipping the handle's release, which clears the animating state and pools the handle.
     public sealed class WidgetAnimationCancellationTests
     {
         private PoolScope _pools;
