@@ -188,8 +188,13 @@ namespace UIFramework.Core
                 throw new InvalidOperationException($"{GetType().Name} cannot initialize from {State}.");
             
             AcquireResources();
-            _isEnabled.OnUpdate += OnIsEnabledUpdated;
+            _isEnabled.OnUpdate += OnIsEnabledChanged;
             IsInteractableInternal.OnUpdate += OnIsInteractableUpdated;
+            // Level push: subscriptions only deliver future edges, and after a terminate/re-initialize
+            // cycle the backend still holds the previous lifecycle's values. Both mirrors are pure —
+            // the override-channel coupling lives in OnIsEnabledChanged, which is edge-only.
+            OnIsEnabledUpdated(_isEnabled.Value);
+            OnIsInteractableUpdated(IsInteractableInternal.Value);
             SetActive(false);
             Visibility = WidgetVisibility.Hidden;
             State = WidgetState.Initialized;
@@ -219,7 +224,7 @@ namespace UIFramework.Core
                     child.Terminate();
             }
             
-            _isEnabled.OnUpdate -= OnIsEnabledUpdated;
+            _isEnabled.OnUpdate -= OnIsEnabledChanged;
             IsInteractableInternal.OnUpdate -= OnIsInteractableUpdated;
             _animationCts?.Cancel();
             _animationCts = null;
@@ -231,11 +236,12 @@ namespace UIFramework.Core
             ResetAnimatedProperties();
             _isEnabled.Reset(true);
             IsInteractableInternal.Reset(true);
-            // Last, so the teardown above still runs against live render handles.
-            ReleaseResources();
             State = WidgetState.Terminated;
             OnTerminate();
             Terminated?.Invoke(this);
+            // Last, mirroring Initialize (acquire first, hooks after): the base teardown, the OnTerminate
+            // hook and Terminated subscribers all still run against live render handles.
+            ReleaseResources();
         }
 
         IReadOnlyWidget IReadOnlyWidget.GetChildAt(int index) => GetChildAt(index);
@@ -394,6 +400,9 @@ namespace UIFramework.Core
             }
             else
             {
+                // Matches SetVisibility's hidden end state, deactivating before the events fire: without
+                // this an animated hide left the object active — invisible, but still receiving input.
+                SetActive(false);
                 Hidden?.Invoke(this);
                 OnHidden();
             }
@@ -482,8 +491,19 @@ namespace UIFramework.Core
 
         // WidgetBase
         protected abstract void SortAgainst(IWidget target, int direction);
+
+        // Backend mirrors: apply the value to the render objects and do nothing else. They are invoked on
+        // every change and once more as a level push during Initialize, so they must be side-effect free.
         protected abstract void OnIsEnabledUpdated(bool value);
         protected abstract void OnIsInteractableUpdated(bool value);
+
+        // Edge-only wrapper for the enabled flag: disabling a widget holds the interactable override, and
+        // that contribution must be counted exactly once per transition — a level push may not repeat it.
+        private void OnIsEnabledChanged(bool value)
+        {
+            IsInteractableInternal.SetOverrideValue(value);
+            OnIsEnabledUpdated(value);
+        }
         protected abstract void SetActive(bool active);
 
         // The backend's handles onto the render system: uGUI's parent Canvas and root transform, UI Toolkit's

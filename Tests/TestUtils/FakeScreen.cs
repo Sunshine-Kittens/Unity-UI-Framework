@@ -74,6 +74,12 @@ namespace UIFramework.TestUtils
         // Arrangement helper — lets a test start from Terminated to reproduce the enable/disable re-init gap.
         public void ForceState(WidgetState state) => State = state;
 
+        // Failure injection, placed where the real widget can throw: initialization fails before any state
+        // changes (mirroring a throwing AcquireResources), termination fails after Terminating has fired but
+        // before the state changes (mirroring backend teardown faulting mid-way).
+        public bool FailInitialize;
+        public bool FailTerminate;
+
         public void RaiseShowing() { Calls.Add(nameof(RaiseShowing)); Showing?.Invoke(this); }
         public void RaiseShown() { Calls.Add(nameof(RaiseShown)); Shown?.Invoke(this); }
         public void RaiseHiding() { Calls.Add(nameof(RaiseHiding)); Hiding?.Invoke(this); }
@@ -87,6 +93,9 @@ namespace UIFramework.TestUtils
                 throw new InvalidOperationException($"{GetType().Name} cannot initialize from {State}.");
 
             Calls.Add(nameof(Initialize));
+            if (FailInitialize)
+                throw new InvalidOperationException($"{GetType().Name} failed to initialize.");
+
             State = WidgetState.Initialized;
             foreach (FakeScreen child in _children)
             {
@@ -103,6 +112,8 @@ namespace UIFramework.TestUtils
 
             Calls.Add(nameof(Terminate));
             Terminating?.Invoke(this);
+            if (FailTerminate)
+                throw new InvalidOperationException($"{GetType().Name} failed to terminate.");
             foreach (FakeScreen child in _children)
             {
                 if (child.CanTerminate)

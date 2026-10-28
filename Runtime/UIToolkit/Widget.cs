@@ -15,6 +15,7 @@ namespace UIFramework.UIToolkit
     {
         // UI Toolkit Widget
         private const string _NonInteractiveClassName = ".non-interactive";
+        private float _restingOpacity = 1.0F;
 
         // WidgetBase
         public override int LocalSortOrder => _visualElement.parent != null ? _visualElement.parent.hierarchy.IndexOf(_visualElement) : 0;
@@ -72,6 +73,20 @@ namespace UIFramework.UIToolkit
         {
             _visualElement = null;
         }
+
+        // Clears the inline styles the generic animations write, handing translate/rotate/scale back to the
+        // stylesheet; opacity returns to the last externally set value, so a group's opacity survives an
+        // animation ending. Null before acquisition or after release: nothing to restore.
+        public override void ResetAnimatedProperties()
+        {
+            if (_visualElement == null)
+                return;
+
+            _visualElement.style.opacity = _restingOpacity;
+            _visualElement.style.translate = new StyleTranslate(StyleKeyword.Null);
+            _visualElement.style.rotate = new StyleRotate(StyleKeyword.Null);
+            _visualElement.style.scale = new StyleScale(StyleKeyword.Null);
+        }
         
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
         {
@@ -89,8 +104,6 @@ namespace UIFramework.UIToolkit
             }
             throw new InvalidOperationException("Widget visibility is unsupported.");
         }
-
-        public override void ResetAnimatedProperties() { }
 
         public sealed override void SetLocalSortOrder(int sortOrder)
         {
@@ -118,6 +131,7 @@ namespace UIFramework.UIToolkit
 
         public sealed override void SetOpacity(float opacity)
         {
+            _restingOpacity = opacity;
             _visualElement.style.opacity = opacity;
         }
 
@@ -147,16 +161,7 @@ namespace UIFramework.UIToolkit
         
         protected sealed override void OnIsEnabledUpdated(bool value)
         {
-            if (value)
-            {
-                IsInteractableInternal.SetOverrideValue(true);
-                _visualElement.SetEnabled(true);
-            }
-            else
-            {
-                IsInteractableInternal.SetOverrideValue(false);
-                _visualElement.SetEnabled(false);
-            }
+            _visualElement.SetEnabled(value);
         }
 
         protected sealed override void OnIsInteractableUpdated(bool value)

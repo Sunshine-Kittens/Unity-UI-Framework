@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UIFramework.Collectors;
 using UIFramework.Core.Interfaces;
 
+using UnityEngine;
+
 namespace UIFramework.Registry
 {
     public interface IWidgetRegistry<TWidget> where TWidget : class, IWidget
@@ -113,30 +115,33 @@ namespace UIFramework.Registry
             }
         }
         
+        // Ordered so a throw leaves the registry untouched: validate without mutating, bring the widget up
+        // (its initialization is the one step here that can fail), and only then record it. Events fire last,
+        // Registered before Initialized, matching the Initialize() path — handlers on either see the widget
+        // fully listed.
         public void Register(TWidget widget)
         {
             if (widget == null) throw new ArgumentNullException(nameof(widget));
 
             Type widgetType = widget.GetType();
-            if (!_widgetTypeMap.TryAdd(widgetType, widget))
+            if (_widgetTypeMap.ContainsKey(widgetType))
                 throw new InvalidOperationException($"Widget of type {widgetType.Name} is already registered");
-            
+
             string identifier = widget.Identifier;
-            if (!string.IsNullOrEmpty(identifier) && !_widgetIdentifierMap.TryAdd(identifier, widget))
-            {
-                _widgetTypeMap.Remove(widgetType);
+            if (!string.IsNullOrEmpty(identifier) && _widgetIdentifierMap.ContainsKey(identifier))
                 throw new InvalidOperationException($"Widget with identifier '{identifier}' is already registered");
-            }
-            
+
+            if (_isInitialized && _lifecycle.CanInitialize(widget))
+                _lifecycle.Initialize(widget);
+
+            _widgetTypeMap.Add(widgetType, widget);
+            if (!string.IsNullOrEmpty(identifier))
+                _widgetIdentifierMap.Add(identifier, widget);
             SubscribeToLifecycle(widget);
-            if (_isInitialized)
-            {
-                if (_lifecycle.CanInitialize(widget))
-                    _lifecycle.Initialize(widget);
-                AnnounceInitialized(widget);
-            }
             _widgets.Add(widget);
+
             WidgetRegistered?.Invoke(widget, _widgets.Count - 1);
+            AnnounceInitialized(widget);
         }
 
         public void SetIndex(TWidget widget, int index)
@@ -157,33 +162,41 @@ namespace UIFramework.Registry
             WidgetIndexChanged?.Invoke(widget, index);
         }
 
+        // Mirror of Register: teardown first, while the registry still answers lookups for the handlers it
+        // notifies — and a widget that refuses to terminate leaves the registry untouched. The index check
+        // afterwards tolerates a WidgetTerminated handler having re-entered and completed this removal.
         public void Unregister(TWidget widget)
         {
             if (widget == null) throw new ArgumentNullException(nameof(widget));
 
             Type widgetType = widget.GetType();
-            if (!_widgetTypeMap.Remove(widgetType, out TWidget foundWidget) || foundWidget != widget)
-            {
+            if (!_widgetTypeMap.TryGetValue(widgetType, out TWidget foundWidget) || foundWidget != widget)
                 throw new InvalidOperationException($"Widget instance of type {widgetType.Name} is not registered");
-            }
+
+            if (_isInitialized && _lifecycle.CanTerminate(widget))
+                _lifecycle.Terminate(widget);
+
+            int index = _widgets.IndexOf(widget);
+            if (index < 0)
+                return;
+
+            UnsubscribeFromLifecycle(widget);
+            _widgetTypeMap.Remove(widgetType);
             string identifier = widget.Identifier;
             if (!string.IsNullOrEmpty(identifier))
                 _widgetIdentifierMap.Remove(identifier);
-            if (_isInitialized && _lifecycle.CanTerminate(widget))
-            {
-                _lifecycle.Terminate(widget);
-            }
-            UnsubscribeFromLifecycle(widget);
-            int index = _widgets.IndexOf(widget);
-            _widgets.Remove(widget);
+            _widgets.RemoveAt(index);
             WidgetUnregistered?.Invoke(widget, index);
         }
 
         public void Clear()
         {
-            for (int i = _widgets.Count - 1; i >= 0; i--)
+            // Snapshot, newest first: each Unregister raises events whose handlers may mutate the list.
+            TWidget[] widgets = _widgets.ToArray();
+            for (int i = widgets.Length - 1; i >= 0; i--)
             {
-                Unregister(_widgets[i]);
+                if (_widgets.Contains(widgets[i]))
+                    Unregister(widgets[i]);
             }
         }
         
@@ -302,9 +315,15 @@ namespace UIFramework.Registry
             if (_isInitialized) throw new InvalidOperationException("Registry already initialized");
 
             // Set ahead of the loop: the relay below speaks only for an initialized registry, and a consumer
-            // handling an announcement may look other widgets up.
+            // handling an announcement may look other widgets up. The snapshot keeps a handler that registers
+            // further widgets from invalidating the iteration — a widget registered mid-loop is initialized
+            // by Register itself, since the flag is already up.
+            //
+            // A widget that throws aborts the sweep, fail-fast, and the registry stays initialized with the
+            // widgets brought up so far; Terminate() unwinds that state cleanly.
             _isInitialized = true;
-            foreach (TWidget widget in _widgets)
+            TWidget[] widgets = _widgets.ToArray();
+            foreach (TWidget widget in widgets)
             {
                 if (_lifecycle.CanInitialize(widget))
                     _lifecycle.Initialize(widget);
@@ -316,11 +335,20 @@ namespace UIFramework.Registry
         {
             if (!_isInitialized) throw new InvalidOperationException("Registry is not initialized");
             
-            foreach (TWidget widget in _widgets)
+            // Unlike Initialize, the sweep completes on failure: aborting teardown would strand every later
+            // widget live and subscribed while the registry forgets them, so a throwing widget is reported
+            // and the rest still come down. Snapshot for the same reason as Initialize.
+            TWidget[] widgets = _widgets.ToArray();
+            foreach (TWidget widget in widgets)
             {
-                if (_lifecycle.CanTerminate(widget))
+                try
                 {
-                    _lifecycle.Terminate(widget);
+                    if (_lifecycle.CanTerminate(widget))
+                        _lifecycle.Terminate(widget);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
                 }
                 UnsubscribeFromLifecycle(widget);
             }

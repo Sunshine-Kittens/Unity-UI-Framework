@@ -55,6 +55,9 @@ namespace UIFramework.UGUI
         private Canvas _canvas = null;
         private Transform _rootUnderCanvas = null;
         protected Vector3 _activeAnchoredPosition { get; private set; } = Vector3.zero;
+        private Quaternion _activeRotation = Quaternion.identity;
+        private Vector3 _activeScale = Vector3.one;
+        private float _restingOpacity = 1.0F;
 
         // WidgetBase
         protected sealed override void AcquireResources()
@@ -70,7 +73,11 @@ namespace UIFramework.UGUI
                 rootUnderCanvas =  rootUnderCanvas.parent;        
             }
             _rootUnderCanvas = rootUnderCanvas;
+            // The resting pose the animations displace and ResetAnimatedProperties restores. Terminate
+            // restores the pose before releasing, so a re-initialize captures clean values here.
             _activeAnchoredPosition = RectTransform.anchoredPosition;
+            _activeRotation = RectTransform.localRotation;
+            _activeScale = RectTransform.localScale;
         }
 
         protected sealed override void ReleaseResources()
@@ -78,6 +85,8 @@ namespace UIFramework.UGUI
             _canvas = null;
             _rootUnderCanvas = null;
             _activeAnchoredPosition = Vector3.zero;
+            _activeRotation = Quaternion.identity;
+            _activeScale = Vector3.one;
         }
 
         public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
@@ -99,7 +108,16 @@ namespace UIFramework.UGUI
             throw new InvalidOperationException("Widget visibility is unsupported.");
         }
 
-        public override void ResetAnimatedProperties() { }
+        // Restores everything the generic animations mutate: alpha, anchored position, rotation and
+        // scale. Alpha goes back to the last externally set opacity, not to 1 — the group's opacity is
+        // applied through SetOpacity and must survive an animation ending.
+        public override void ResetAnimatedProperties()
+        {
+            CanvasGroup.alpha = _restingOpacity;
+            RectTransform.anchoredPosition = _activeAnchoredPosition;
+            RectTransform.localRotation = _activeRotation;
+            RectTransform.localScale = _activeScale;
+        }
 
         public sealed override void SetLocalSortOrder(int sortOrder)
         {
@@ -118,6 +136,7 @@ namespace UIFramework.UGUI
 
         public sealed override void SetOpacity(float opacity)
         {
+            _restingOpacity = opacity;
             CanvasGroup.alpha = opacity;
         }    
 
@@ -147,16 +166,7 @@ namespace UIFramework.UGUI
         
         protected sealed override void OnIsEnabledUpdated(bool value)
         {
-            if (value)
-            {
-                IsInteractableInternal.SetOverrideValue(true);
-                CanvasGroup.interactable = true;
-            }
-            else
-            {
-                IsInteractableInternal.SetOverrideValue(false);
-                CanvasGroup.interactable = false;
-            }
+            CanvasGroup.interactable = value;
         }
 
         protected sealed override void OnIsInteractableUpdated(bool value)
