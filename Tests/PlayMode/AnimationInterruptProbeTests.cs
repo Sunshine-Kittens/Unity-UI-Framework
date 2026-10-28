@@ -14,8 +14,9 @@ using UnityEngine.TestTools;
 
 namespace UIFramework.Tests.PlayMode
 {
-    // Probes for review findings that depend on whether Unity resumes Awaitable continuations inline.
-    // Empirical, not argued.
+    // Probes for animation behaviour established empirically rather than argued: fade direction, how skip
+    // and rewind settle given that Unity resumes Awaitable continuations inline, and whether the interactable
+    // gate survives interrupts.
     public sealed class AnimationInterruptProbeTests
     {
         private PoolScope _pools;
@@ -59,6 +60,26 @@ namespace UIFramework.Tests.PlayMode
                 "a show animation must end fully opaque");
         }
 
+        // The end state cannot pin direction: ResetAnimatedProperties restores the resting alpha on every exit.
+        // The start pose can — Play evaluates the first frame before AnimateVisibility first yields.
+        [Test]
+        public void AShowFadeStartsTransparent()
+        {
+            _ = StartFade(WidgetVisibility.Visible);
+
+            Assert.That(_fixture.Widget.CanvasGroup.alpha, Is.EqualTo(0f).Within(0.01f));
+        }
+
+        [Test]
+        public void AHideFadeStartsOpaque()
+        {
+            _fixture.Widget.SetVisibility(WidgetVisibility.Visible);
+
+            _ = StartFade(WidgetVisibility.Hidden);
+
+            Assert.That(_fixture.Widget.CanvasGroup.alpha, Is.EqualTo(1f).Within(0.01f));
+        }
+
         // PROBE: SkipAnimation is async, so a fault lands in the returned awaitable, never at the call
         // site. Both awaitables are observed; the pool count discriminates a double release (2) from a
         // leaked handle (0). show.IsComplete immediately after the call discriminates whether completion
@@ -68,7 +89,7 @@ namespace UIFramework.Tests.PlayMode
         {
             AwaitableProbe show = AwaitableProbe.Watch(StartFade(WidgetVisibility.Visible));
             yield return null;
-            Assume.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
+            Assert.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
 
             AwaitableProbe skip = AwaitableProbe.Watch(_fixture.Widget.SkipAnimation());
             Debug.Log($"PROBE show_complete_inline_after_skip={show.IsComplete}");
@@ -92,7 +113,7 @@ namespace UIFramework.Tests.PlayMode
         {
             AwaitableProbe show = AwaitableProbe.Watch(StartFade(WidgetVisibility.Visible));
             yield return null;
-            Assume.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
+            Assert.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
 
             AwaitableProbe rewind = AwaitableProbe.Watch(_fixture.Widget.RewindAnimation());
 
@@ -105,6 +126,34 @@ namespace UIFramework.Tests.PlayMode
             Assert.That(rewind.Exception, Is.Null, "RewindAnimation settled without faulting");
             Assert.That(show.Exception, Is.TypeOf<OperationCanceledException>(),
                 "the interrupted show observed its cancellation");
+            Assert.That(_fixture.Widget.Visibility, Is.EqualTo(WidgetVisibility.Hidden), "the rewound show ends hidden");
+            Assert.That(_fixture.Widget.IsAnimating, Is.False);
+            Assert.That(HandlePoolCount, Is.EqualTo(1),
+                "one pooled handle on balance: a double release on either path would read 2, a leaked rewind handle 0");
+        }
+
+        // A rewind and the interrupted animation simply playing on both end hidden and settled; only the direction
+        // of travel tells them apart. The show runs far enough first that one frame of rewinding cannot finish
+        // the rewind, whose completion would restore the resting alpha.
+        [UnityTest]
+        public IEnumerator RewindReversesTheInterruptedAnimation()
+        {
+            AwaitableProbe show = AwaitableProbe.Watch(StartFade(WidgetVisibility.Visible));
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (_fixture.Widget.CanvasGroup.alpha < 0.3f && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            float beforeRewind = _fixture.Widget.CanvasGroup.alpha;
+            Assert.That(beforeRewind, Is.GreaterThanOrEqualTo(0.3f), "the show has progressed far enough to rewind");
+
+            AwaitableProbe rewind = AwaitableProbe.Watch(_fixture.Widget.RewindAnimation());
+            yield return null;
+
+            Assert.That(_fixture.Widget.CanvasGroup.alpha, Is.LessThan(beforeRewind),
+                $"the rewound fade travels back toward hidden (sampled {beforeRewind} before rewinding)");
+
+            yield return rewind.WaitForCompletion();
+            yield return show.WaitForCompletion();
+            Assert.That(rewind.Exception, Is.Null);
         }
 
         // PROBE: after one interrupt, is the interactable override still able to gate input?
@@ -113,7 +162,7 @@ namespace UIFramework.Tests.PlayMode
         {
             _ = StartFade(WidgetVisibility.Visible);
             yield return null;
-            Assume.That(_fixture.Widget.IsInteractable.Value, Is.False, "animating widget is input-gated");
+            Assert.That(_fixture.Widget.IsInteractable.Value, Is.False, "animating widget is input-gated");
 
             _fixture.Widget.SetVisibility(WidgetVisibility.Hidden);   // interrupt
             yield return null;
@@ -138,7 +187,7 @@ namespace UIFramework.Tests.PlayMode
             {
                 _ = StartFade(WidgetVisibility.Visible);
                 yield return null;
-                Assume.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
+                Assert.That(_fixture.Widget.IsAnimating, Is.True, "animation is running");
                 _fixture.Widget.SetVisibility(WidgetVisibility.Hidden);
                 yield return null;
             }

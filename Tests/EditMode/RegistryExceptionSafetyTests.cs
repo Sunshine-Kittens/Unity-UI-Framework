@@ -98,13 +98,78 @@ namespace UIFramework.Tests.EditMode
             _registry.Initialize();
             _announced.Clear();
 
-            LogAssert.Expect(LogType.Exception, new Regex("failed to terminate"));
+            LogAssert.Expect(LogType.Exception, new Regex("FakeScreenA failed to terminate"));
             _registry.Terminate();
 
             Assert.That(other.State, Is.EqualTo(WidgetState.Terminated),
                 "widgets after the failing one still come down");
             Assert.That(_registry.IsInitialized, Is.False);
             Assert.That(_registry.Widgets, Is.Empty);
+
+            // The accepted cost of completing the sweep: the failing widget is forgotten while still live, and was
+            // already announced as terminated, since Terminating fires before its teardown failed.
+            Assert.That(failing.State, Is.EqualTo(WidgetState.Initialized));
+            Assert.That(_announced, Does.Contain("term:FakeScreenA"));
+        }
+
+        // Unregister mirrors Register: teardown runs first, while the registry still answers lookups, so a widget
+        // whose teardown throws is left registered rather than half-removed.
+        [Test]
+        public void AFailedUnregisterLeavesTheWidgetRegistered()
+        {
+            FakeScreenA failing = new() { FailTerminate = true };
+            _registry.Register(failing);
+            _registry.Initialize();
+
+            Assert.That(() => _registry.Unregister(failing), Throws.InvalidOperationException);
+
+            Assert.That(_registry.Widgets, Has.Member(failing));
+            Assert.That(_registry.TryGet(out FakeScreenA found) && ReferenceEquals(found, failing), Is.True,
+                "lookups still resolve the widget");
+        }
+
+        [Test]
+        public void AHandlerUnregisteringTheSameWidgetDuringItsTeardownIsTolerated()
+        {
+            FakeScreenA a = new();
+            _registry.Register(a);
+            _registry.Initialize();
+            int unregistered = 0;
+            _registry.WidgetUnregistered += (_, _) => unregistered++;
+            _registry.WidgetTerminated += widget =>
+            {
+                if (_registry.IndexOf(widget) >= 0)
+                    _registry.Unregister(widget);
+            };
+
+            Assert.That(() => _registry.Unregister(a), Throws.Nothing);
+
+            Assert.That(_registry.Widgets, Is.Empty);
+            Assert.That(unregistered, Is.EqualTo(1), "removed exactly once");
+        }
+
+        [Test]
+        public void AHandlerUnregisteringAnotherWidgetDuringClearDoesNotBreakIt()
+        {
+            FakeScreenA a = new();
+            FakeScreenB b = new();
+            FakeScreenC c = new();
+            _registry.Register(a);
+            _registry.Register(b);
+            _registry.Register(c);
+            _registry.Initialize();
+            _registry.WidgetUnregistered += (widget, _) =>
+            {
+                if (widget == c && _registry.IndexOf(a) >= 0)
+                    _registry.Unregister(a);
+            };
+
+            Assert.That(() => _registry.Clear(), Throws.Nothing);
+
+            Assert.That(_registry.Widgets, Is.Empty);
+            Assert.That(a.State, Is.EqualTo(WidgetState.Terminated));
+            Assert.That(b.State, Is.EqualTo(WidgetState.Terminated));
+            Assert.That(c.State, Is.EqualTo(WidgetState.Terminated));
         }
 
         [Test]

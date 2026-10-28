@@ -18,6 +18,7 @@ namespace UIFramework.Tests.EditMode
     // Reset is controller-facing and not on IScreenGroup, so the group is built directly here.
     public sealed class GroupResetTests
     {
+        private PoolScope _pools;
         private WidgetRegistry<IScreen> _registry;
         private FakeScreenA _a;
         private ScreenGroup _group;
@@ -25,6 +26,7 @@ namespace UIFramework.Tests.EditMode
         [SetUp]
         public void SetUp()
         {
+            _pools = new PoolScope();
             _a = new FakeScreenA();
             _registry = new WidgetRegistry<IScreen>();
             _registry.Register(_a);
@@ -35,6 +37,9 @@ namespace UIFramework.Tests.EditMode
             Assume.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible));
             Assume.That(_a.Navigator, Is.SameAs(_group));
         }
+
+        [TearDown]
+        public void TearDown() => _pools?.Dispose();
 
         [Test]
         public void ResetHidesReleasedScreens()

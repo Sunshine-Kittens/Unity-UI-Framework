@@ -217,7 +217,7 @@ namespace UIFramework.Tests.EditMode
             ScreenController first = new(new[] { new FakeCollector(_a) }, TimeMode.Scaled, new ManualClock());
             first.Initialize();
             first.Terminate();
-            Assume.That(_a.State, Is.EqualTo(WidgetState.Terminated));
+            Assert.That(_a.State, Is.EqualTo(WidgetState.Terminated), "tearing down the controller terminates its screens");
 
             ScreenController second = new(new[] { new FakeCollector(_a) }, TimeMode.Scaled, new ManualClock());
             second.Initialize();

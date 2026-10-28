@@ -11,11 +11,16 @@ namespace UIFramework.Tests.PlayMode
     // transition, unlike the parent Canvas.
     //
     // This used to fail: Opacity, SetOpacity and GetGenericAnimation read the backing fields instead, and
-    // nothing in initialization touched the properties, so the fields stayed null and all three threw on a
-    // freshly initialized widget. The only members that did read the properties were the enabled/interactable
+    // nothing in initialization touched the CanvasGroup property, so that field stayed null and all three threw
+    // on a freshly initialized widget. The only members that did read that property were the enabled/interactable
     // handlers, which run only when a ScalarFlag actually changes value — so whether a widget worked depended
     // on whether something had happened to prime it. Reachable in ordinary use: a group calls SetOpacity on
     // every screen it acquires.
+    //
+    // Initialize now reads both properties itself — RectTransform while capturing the canvas root and resting
+    // pose, CanvasGroup while pushing the enabled/interactable state — priming both fields as a side effect, so
+    // only an uninitialized widget that no other accessor has touched yet can still tell the lazy path from the
+    // field.
     public sealed class UguiWidgetAccessorTests
     {
         [Test]
@@ -27,9 +32,9 @@ namespace UIFramework.Tests.PlayMode
         }
 
         [Test]
-        public void AFreshWidgetAcceptsAnOpacityChange()
+        public void AnUninitializedWidgetAcceptsAnOpacityChange()
         {
-            using UguiWidgetFixture fixture = new();
+            using UguiWidgetFixture fixture = new(initialize: false);
 
             fixture.Widget.SetOpacity(0.5f);
 
@@ -37,11 +42,22 @@ namespace UIFramework.Tests.PlayMode
         }
 
         [Test]
-        public void AFreshWidgetResolvesAGenericAnimation()
+        public void AnUninitializedWidgetResolvesAGenericShowAnimation()
         {
-            using UguiWidgetFixture fixture = new();
+            using UguiWidgetFixture fixture = new(initialize: false);
 
             Assert.That(fixture.Widget.GetGenericAnimation(GenericAnimation.Fade, WidgetVisibility.Visible),
+                Is.Not.Null);
+        }
+
+        // A widget of its own: resolving the show animation first would prime both fields through the properties
+        // and hide a hide branch that reads the fields.
+        [Test]
+        public void AnUninitializedWidgetResolvesAGenericHideAnimation()
+        {
+            using UguiWidgetFixture fixture = new(initialize: false);
+
+            Assert.That(fixture.Widget.GetGenericAnimation(GenericAnimation.Fade, WidgetVisibility.Hidden),
                 Is.Not.Null);
         }
 

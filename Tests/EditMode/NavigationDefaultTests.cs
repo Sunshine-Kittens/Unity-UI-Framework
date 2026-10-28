@@ -18,6 +18,7 @@ namespace UIFramework.Tests.EditMode
     [Category("Characterization")]
     public sealed class NavigationDefaultTests
     {
+        private PoolScope _pools;
         private FakeScreenA _a;
         private FakeAnimation _entryAnimation;
         private ScreenController _controller;
@@ -25,11 +26,15 @@ namespace UIFramework.Tests.EditMode
         [SetUp]
         public void SetUp()
         {
+            _pools = new PoolScope();
             _entryAnimation = new FakeAnimation(0.5f);
             _a = new FakeScreenA { DefaultVisibleAnimation = _entryAnimation };
             _controller = new ScreenController(new[] { new FakeCollector(_a) }, TimeMode.Scaled, new ManualClock());
             _controller.Initialize();
         }
+
+        [TearDown]
+        public void TearDown() => _pools?.Dispose();
 
         [Test]
         public void ExecuteIsInstantEvenWhenTheTargetHasADefaultAnimation()

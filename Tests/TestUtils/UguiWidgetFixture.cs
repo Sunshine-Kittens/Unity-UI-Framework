@@ -35,10 +35,20 @@ namespace UIFramework.TestUtils
         // registered key is the full type name.
         public static string HandlePoolName => $"VisibilityAnimationHandle<{typeof(Widget).FullName}>";
 
+        // Ends the widget's lifecycle before destroying it: a test that finishes mid-animation would otherwise
+        // leave the player ticking and its continuation pending against destroyed objects.
         public void Dispose()
         {
-            if (Root != null)
-                Object.DestroyImmediate(Root);
+            try
+            {
+                if (Widget != null && Widget.CanTerminate)
+                    Widget.Terminate();
+            }
+            finally
+            {
+                if (Root != null)
+                    Object.DestroyImmediate(Root);
+            }
         }
     }
 }

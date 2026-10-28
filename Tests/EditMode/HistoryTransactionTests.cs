@@ -16,6 +16,7 @@ namespace UIFramework.Tests.EditMode
     [Category("Characterization")]
     public sealed class HistoryTransactionTests
     {
+        private PoolScope _pools;
         private FakeScreenA _a;
         private FakeScreenB _b;
         private ScreenController _controller;
@@ -23,12 +24,16 @@ namespace UIFramework.Tests.EditMode
         [SetUp]
         public void SetUp()
         {
+            _pools = new PoolScope();
             _a = new FakeScreenA();
             _b = new FakeScreenB();   // AcceptsData is false, so navigating to it with data throws
             _controller = new ScreenController(new[] { new FakeCollector(_a, _b) }, TimeMode.Scaled, new ManualClock());
             _controller.Initialize();
             _controller.CreateNavigateToRequest<FakeScreenA>().Execute();
         }
+
+        [TearDown]
+        public void TearDown() => _pools?.Dispose();
 
         private void NavigateToBWithRejectedData()
             => Assert.That(() => _controller.CreateNavigateToRequest<FakeScreenB>().WithData("rejected").Execute(),

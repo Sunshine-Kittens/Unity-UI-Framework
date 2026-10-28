@@ -13,6 +13,7 @@ namespace UIFramework.Tests.EditMode
     // and the in-group return are pinned here on the instant path.
     public sealed class NavigationFlowTests
     {
+        private PoolScope _pools;
         private FakeScreenA _a;
         private FakeScreenB _b;
         private ScreenController _controller;
@@ -20,6 +21,7 @@ namespace UIFramework.Tests.EditMode
         [SetUp]
         public void SetUp()
         {
+            _pools = new PoolScope();
             _a = new FakeScreenA();
             _b = new FakeScreenB();
             _controller = new ScreenController(new[] { new FakeCollector(_a, _b) }, TimeMode.Scaled, new ManualClock());
@@ -27,6 +29,9 @@ namespace UIFramework.Tests.EditMode
             _controller.CreateNavigateToRequest<FakeScreenA>().Execute();
             Assume.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible));
         }
+
+        [TearDown]
+        public void TearDown() => _pools?.Dispose();
 
         [Test]
         public void ForwardNavigationSwapsScreens()

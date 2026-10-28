@@ -15,12 +15,14 @@ namespace UIFramework.Tests.EditMode
     // nothing hid, nothing collapsed, and the layer below stayed paused permanently.
     public sealed class EmptyGroupCollapseTests
     {
+        private PoolScope _pools;
         private FakeScreenA _a;
         private ScreenController _controller;
 
         [SetUp]
         public void SetUp()
         {
+            _pools = new PoolScope();
             _a = new FakeScreenA();
             _controller = new ScreenController(new[] { new FakeCollector(_a) }, TimeMode.Scaled, new ManualClock());
             _controller.Initialize();
@@ -28,6 +30,9 @@ namespace UIFramework.Tests.EditMode
             _controller.PushGroup();
             Assume.That(_controller.Groups, Has.Count.EqualTo(2));
         }
+
+        [TearDown]
+        public void TearDown() => _pools?.Dispose();
 
         [Test]
         public void ReturnCollapsesAGroupThatWasNeverNavigatedInto()

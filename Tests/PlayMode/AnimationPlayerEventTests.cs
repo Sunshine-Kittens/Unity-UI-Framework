@@ -20,13 +20,22 @@ namespace UIFramework.Tests.PlayMode
     // every animation in this framework reports zero events, that was every animation.
     public sealed class AnimationPlayerEventTests
     {
+        private PoolScope _pools;
         private UguiWidgetFixture _fixture;
 
         [SetUp]
-        public void SetUp() => _fixture = new UguiWidgetFixture();
+        public void SetUp()
+        {
+            _pools = new PoolScope();
+            _fixture = new UguiWidgetFixture();
+        }
 
         [TearDown]
-        public void TearDown() => _fixture?.Dispose();
+        public void TearDown()
+        {
+            _fixture?.Dispose();
+            _pools?.Dispose();
+        }
 
         private AwaitableProbe Play(FakeAnimation animation, float length, PlaybackMode playbackMode, float startTime)
             => AwaitableProbe.Watch(_fixture.Widget.AnimateVisibility(WidgetVisibility.Visible)
