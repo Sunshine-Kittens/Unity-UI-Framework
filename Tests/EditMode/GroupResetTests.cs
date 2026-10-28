@@ -101,5 +101,16 @@ namespace UIFramework.Tests.EditMode
             Assert.That(reused.ActiveScreen, Is.SameAs(_a));
             Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Visible), "and can be shown again");
         }
+
+        [Test]
+        public void ResetClearsTheControllerOpacity()
+        {
+            _group.SetControllerOpacity(0.5f);
+            _group.Reset();
+
+            _group.CreateNavigateToRequest(_a).Execute();
+
+            Assert.That(_a.Opacity, Is.EqualTo(1f));
+        }
     }
 }

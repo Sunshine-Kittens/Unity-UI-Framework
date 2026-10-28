@@ -15,6 +15,10 @@ namespace UIFramework.Controllers.Interfaces
         public IReadOnlyList<IScreenGroup> Groups { get; }
         public IScreenGroup ActiveGroup { get; }
 
+        // Scales the opacity of every group's screens on top of each group's own opacity.
+        public float Opacity { get; }
+        public void SetOpacity(float opacity);
+
         // Opens a new group as the top overlay layer and returns it; the layer below stays visible but is
         // input-paused. Navigate into the returned group (or via the controller, which targets the top).
         public IScreenGroup PushGroup();

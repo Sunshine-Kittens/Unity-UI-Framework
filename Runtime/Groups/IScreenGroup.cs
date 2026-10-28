@@ -18,6 +18,7 @@ namespace UIFramework.Groups
     // owning controller.
     public interface IScreenGroup : IScreenNavigator
     {
+        // Visibility accounts for the owning controller's opacity; Opacity is the group's own.
         public bool IsVisible { get; }
         public float Opacity { get; }
 

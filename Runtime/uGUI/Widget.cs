@@ -109,8 +109,8 @@ namespace UIFramework.UGUI
         }
 
         // Restores everything the generic animations mutate: alpha, anchored position, rotation and
-        // scale. Alpha goes back to the last externally set opacity, not to 1 — the group's opacity is
-        // applied through SetOpacity and must survive an animation ending.
+        // scale. Alpha goes back to the last externally set opacity, not to 1 — the opacity a group applies
+        // through SetOpacity must survive an animation ending.
         public override void ResetAnimatedProperties()
         {
             CanvasGroup.alpha = _restingOpacity;

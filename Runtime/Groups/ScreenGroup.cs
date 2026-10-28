@@ -26,10 +26,14 @@ namespace UIFramework.Groups
     // controller's to enforce via Holds).
     public sealed class ScreenGroup : IScreenGroup
     {
-        public bool IsVisible => _presentationState > 0 && _presentationState < GroupPresentationState.Exited && _opacity > 0f;
+        public bool IsVisible => _presentationState > 0 && _presentationState < GroupPresentationState.Exited && ScreenOpacity > 0f;
 
         public float Opacity => _opacity;
         private float _opacity = 1f;
+        private float _controllerOpacity = 1f;
+
+        // What held screens are set to: the group's own opacity scaled by its controller's.
+        private float ScreenOpacity => _opacity * _controllerOpacity;
 
         public IScreen ActiveScreen => _navigator.ActiveInstance;
 
@@ -144,8 +148,14 @@ namespace UIFramework.Groups
         public void SetOpacity(float opacity)
         {
             _opacity = opacity;
-            foreach (IScreen screen in _held)
-                screen.SetOpacity(opacity);
+            ApplyScreenOpacity();
+        }
+
+        // The owning controller's opacity, applied on top of the group's own.
+        public void SetControllerOpacity(float opacity)
+        {
+            _controllerOpacity = opacity;
+            ApplyScreenOpacity();
         }
 
         public void Tick()
@@ -206,6 +216,7 @@ namespace UIFramework.Groups
             _isInteractable.Reset(true);
             _screensInteractable = true;
             _opacity = 1f;
+            _controllerOpacity = 1f;
             _layerOrder = 0;
             _presentationState = default;
 
@@ -220,7 +231,7 @@ namespace UIFramework.Groups
         }
 
         // A screen joins the group the first time it is navigated to: claim it as a member, apply the group's
-        // current layer/opacity/interactability, and subscribe to its visibility events.
+        // current layer, combined opacity and interactability, and subscribe to its visibility events.
         private void Acquire(IScreen screen)
         {
             if (!_held.Add(screen))
@@ -233,12 +244,19 @@ namespace UIFramework.Groups
             screen.Hidden += OnScreenHidden;
 
             screen.SetGlobalSortOrder(_layerOrder);
-            screen.SetOpacity(_opacity);
+            screen.SetOpacity(ScreenOpacity);
 
             // IsInteractable.Value counts requests rather than assigning, so join an already-paused group by
             // taking the one decrement this group is entitled to.
             if (!_screensInteractable)
                 screen.IsInteractable.Value = false;
+        }
+
+        private void ApplyScreenOpacity()
+        {
+            float opacity = ScreenOpacity;
+            foreach (IScreen screen in _held)
+                screen.SetOpacity(opacity);
         }
 
         private void ReleaseScreen(IScreen screen)

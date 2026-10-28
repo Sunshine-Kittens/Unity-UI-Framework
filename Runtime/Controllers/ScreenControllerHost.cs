@@ -30,11 +30,16 @@ namespace UIFramework.Controllers
         public IScreenController Controller => _controller;
         public IScreenGroup ActiveGroup => _controller?.ActiveGroup;
 
+        // Carried across the controller being rebuilt on each enable.
+        public float Opacity => _controller?.Opacity ?? _opacity;
+
         private ScreenController _controller;
+        private float _opacity = 1f;
 
         protected virtual void OnEnable()
         {
             _controller = CreateController();
+            _controller.SetOpacity(_opacity);
             _controller.Initialize();
             UpdateManager.AddUpdatable(this);
         }
@@ -44,6 +49,7 @@ namespace UIFramework.Controllers
             UpdateManager.RemoveUpdatable(this);
             if (_controller != null)
             {
+                _opacity = _controller.Opacity;
                 _controller.Terminate();
                 _controller = null;
             }
@@ -74,5 +80,11 @@ namespace UIFramework.Controllers
         // Opens a new overlay group above the current one and returns it; the layer below stays visible but
         // input-paused. Navigate into it via the controller (which now targets the top group) or directly.
         public IScreenGroup PushGroup() => _controller.PushGroup();
+
+        public void SetOpacity(float opacity)
+        {
+            _opacity = opacity;
+            _controller?.SetOpacity(opacity);
+        }
     }
 }

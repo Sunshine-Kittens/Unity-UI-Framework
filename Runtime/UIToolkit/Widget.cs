@@ -75,8 +75,8 @@ namespace UIFramework.UIToolkit
         }
 
         // Clears the inline styles the generic animations write, handing translate/rotate/scale back to the
-        // stylesheet; opacity returns to the last externally set value, so a group's opacity survives an
-        // animation ending. Null before acquisition or after release: nothing to restore.
+        // stylesheet; opacity returns to the last externally set value, so the opacity a group applies
+        // survives an animation ending. Null before acquisition or after release: nothing to restore.
         public override void ResetAnimatedProperties()
         {
             if (_visualElement == null)

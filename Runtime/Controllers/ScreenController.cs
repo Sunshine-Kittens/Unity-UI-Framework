@@ -28,6 +28,9 @@ namespace UIFramework.Controllers
         public IReadOnlyList<IScreenGroup> Groups => _groups;
         public IScreenGroup ActiveGroup => _groups.Count > 0 ? _groups[^1] : null;
 
+        public float Opacity => _opacity;
+        private float _opacity = 1f;
+
         private readonly IEnumerable<IWidgetCollector<IScreen>> _collectors;
         private readonly ITimeSource _timeSource;
         private readonly List<ScreenGroup> _groups = new();
@@ -69,6 +72,14 @@ namespace UIFramework.Controllers
         {
             for (int i = 0; i < _groups.Count; i++)
                 _groups[i].Tick();
+        }
+
+        // Scales every group's screens on top of each group's own opacity, including groups pushed later.
+        public void SetOpacity(float opacity)
+        {
+            _opacity = opacity;
+            for (int i = 0; i < _groups.Count; i++)
+                _groups[i].SetControllerOpacity(opacity);
         }
 
         public IScreenGroup PushGroup()
@@ -177,6 +188,7 @@ namespace UIFramework.Controllers
             // Re-subscribe each push: a pooled group cleared these in Reset() when it was collapsed.
             group.Entering += () => OnGroupEntering(group);
             group.Exited += () => OnGroupExited(group);
+            group.SetControllerOpacity(_opacity);
 
             if (_groups.Count > 0)
                 _groups[^1].SetInteractable(false);   // pause the layer below
