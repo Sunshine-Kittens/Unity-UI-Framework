@@ -128,14 +128,14 @@ namespace UIFramework.Registry
                 throw new InvalidOperationException($"Widget of type {widgetType.Name} is already registered");
 
             string identifier = widget.Identifier;
-            if (!string.IsNullOrEmpty(identifier) && _widgetIdentifierMap.ContainsKey(identifier))
+            if (!string.IsNullOrWhiteSpace(identifier) && _widgetIdentifierMap.ContainsKey(identifier))
                 throw new InvalidOperationException($"Widget with identifier '{identifier}' is already registered");
 
             if (_isInitialized && _lifecycle.CanInitialize(widget))
                 _lifecycle.Initialize(widget);
 
             _widgetTypeMap.Add(widgetType, widget);
-            if (!string.IsNullOrEmpty(identifier))
+            if (!string.IsNullOrWhiteSpace(identifier))
                 _widgetIdentifierMap.Add(identifier, widget);
             SubscribeToLifecycle(widget);
             _widgets.Add(widget);
@@ -183,7 +183,7 @@ namespace UIFramework.Registry
             UnsubscribeFromLifecycle(widget);
             _widgetTypeMap.Remove(widgetType);
             string identifier = widget.Identifier;
-            if (!string.IsNullOrEmpty(identifier))
+            if (!string.IsNullOrWhiteSpace(identifier))
                 _widgetIdentifierMap.Remove(identifier);
             _widgets.RemoveAt(index);
             WidgetUnregistered?.Invoke(widget, index);
@@ -282,7 +282,7 @@ namespace UIFramework.Registry
         public bool TryGet(string identifier, out TWidget widget)
         {
             widget = null;
-            if (!_isInitialized) return false;
+            if (!_isInitialized || string.IsNullOrWhiteSpace(identifier)) return false;
 
             return _widgetIdentifierMap.TryGetValue(identifier, out widget);
         }

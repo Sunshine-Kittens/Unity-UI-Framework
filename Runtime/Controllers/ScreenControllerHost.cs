@@ -62,6 +62,9 @@ namespace UIFramework.Controllers
         public NavigateToRequest<IScreen> NavigateTo(string identifier) =>
             _controller.CreateNavigateToRequest(identifier);
 
+        public bool TryNavigateTo(string identifier, out NavigateToRequest<IScreen> request) =>
+            _controller.TryCreateNavigateToRequest(identifier, out request);
+
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default) =>
             _controller.Return(cancellationToken);
 

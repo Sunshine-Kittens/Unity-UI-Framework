@@ -101,6 +101,21 @@ namespace UIFramework.Controllers
             return group.CreateNavigateToRequest(target);
         }
 
+        public bool TryCreateNavigateToRequest(string identifier, out NavigateToRequest<IScreen> request)
+        {
+            if (!IsInitialized)
+                throw new InvalidOperationException("ScreenController is not initialized.");
+            if (!Registry.TryGet(identifier, out IScreen target))
+            {
+                request = default;
+                return false;
+            }
+            ScreenGroup group = ActiveOrBase();
+            GuardOccupancy(target.GetType(), group);
+            request = group.CreateNavigateToRequest(target);
+            return true;
+        }
+
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)
         {
             ScreenGroup active = _groups.Count > 0 ? _groups[^1] : null;

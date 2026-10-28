@@ -118,6 +118,19 @@ namespace UIFramework.Groups
             return new NavigateToRequest<IScreen>(_navigator, _navigateToCoordinator, _navigator.ActiveInstance, _registry.Get(identifier));
         }
 
+        public bool TryCreateNavigateToRequest(string identifier, out NavigateToRequest<IScreen> request)
+        {
+            if (!_registry.IsInitialized)
+                throw new InvalidOperationException("Registry not initialized");
+            if (!_registry.TryGet(identifier, out IScreen target))
+            {
+                request = default;
+                return false;
+            }
+            request = new NavigateToRequest<IScreen>(_navigator, _navigateToCoordinator, _navigator.ActiveInstance, target);
+            return true;
+        }
+
         public NavigateToResponse<IScreen> Return(CancellationToken cancellationToken = default)
         {
             return _returnCoordinator.Return(cancellationToken);
