@@ -84,6 +84,7 @@ Shader "UI/Default++"
                 float2 texcoord  : TEXCOORD0;
                 float4 worldPosition : TEXCOORD1;
                 float4  mask : TEXCOORD2;
+                half fade : TEXCOORD3;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -118,6 +119,10 @@ Shader "UI/Default++"
                 float2 maskUV = (v.vertex.xy - clampedRect.xy) / (clampedRect.zw - clampedRect.xy);
                 OUT.texcoord = TRANSFORM_TEX(v.texcoord.xy, _MainTex);
                 OUT.mask = float4(v.vertex.xy * 2 - clampedRect.xy - clampedRect.zw, 0.25 / (0.25 * half2(_UIMaskSoftnessX, _UIMaskSoftnessY) + abs(pixelSize.xy)));
+
+                // The vertex alpha is the graphic's own alpha (_SizeAndBorder.w) times any CanvasGroup fade; the
+                // border takes only the fade. A graphic with no alpha of its own can't tell, so its border stays as set.
+                OUT.fade = _SizeAndBorder.w > 0 ? saturate(v.color.a / _SizeAndBorder.w) : 1;
 
 
                 if (_UIVertexColorAlwaysGammaSpace)
@@ -164,7 +169,9 @@ Shader "UI/Default++"
                 #endif
 
                 #ifdef UNITY_UI_ROUNDED_CORNERS
-                color = GetRoundedBoxElementColor(_SizeAndBorder.xy, IN.texcoord, _Radii, _SizeAndBorder.z, color, _BorderColor);
+                half4 borderColor = _BorderColor;
+                borderColor.a *= IN.fade;
+                color = GetRoundedBoxElementColor(_SizeAndBorder.xy, IN.texcoord, _Radii, _SizeAndBorder.z, color, borderColor);
                 #endif
 
                 color.rgb *= color.a;
