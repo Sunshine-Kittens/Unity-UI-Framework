@@ -23,6 +23,7 @@ namespace UIFramework.TestUtils
     //   one, throws NotSupportedException;
     // - IgnoreCancellation models a widget whose animation ignores its token, which WidgetBase never does;
     //   interrupting or hiding such a run orphans it still running;
+    // - SkipNeverSettles models a skip that ends the animation but whose awaitable never settles;
     // - there is no handle pooling, and there are no SetActive or OnShow/OnHide hooks.
     public abstract partial class FakeScreen
     {
@@ -38,6 +39,9 @@ namespace UIFramework.TestUtils
         // Runs never observe cancellation, modelling a widget whose animation ignores its token. Only
         // Complete() or SkipAnimation() ends them.
         public bool IgnoreCancellation;
+
+        // SkipAnimation ends the running run as usual, but the awaitable it returns never settles.
+        public bool SkipNeverSettles;
 
         // Every run started, in order.
         public IReadOnlyList<FakeAnimationRun> Runs => _runs;
@@ -153,6 +157,8 @@ namespace UIFramework.TestUtils
             {
                 FakeAnimationRun run = _currentRun;
                 run.CompleteAnimation();
+                if (SkipNeverSettles)
+                    await new AwaitableCompletionSource().Awaitable;
                 await run.CompletedAwaitable;
             }
         }

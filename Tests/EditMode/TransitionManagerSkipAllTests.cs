@@ -15,9 +15,9 @@ namespace UIFramework.Tests.EditMode
     // The latch must clear on every exit, including a fault or a cancellation part-way through; otherwise every
     // later transition runs instant for good.
     //
-    // These FakeScreens do not enable animation, so their animation members throw: a later transition that
-    // faults with NotSupportedException and leaves its target hidden took the animated path, and one that
-    // completes with its target visible ran instant.
+    // Unless a test enables it, these FakeScreens do not animate, so their animation members throw: a later
+    // transition that faults with NotSupportedException and leaves its target hidden took the animated path,
+    // and one that completes with its target visible ran instant.
     public sealed class TransitionManagerSkipAllTests
     {
         private TransitionHarness _harness;
@@ -135,6 +135,39 @@ namespace UIFramework.Tests.EditMode
             _harness.Manager.Reset();
             Assert.That(_harness.Manager.IsTransitionActive, Is.False, "arrange: the manager is idle");
 
+            AssertLaterTransitionAnimates();
+        }
+
+        // The skips end the animations but never settle. The transition finishes regardless, so SkipAll has
+        // nothing left to wait for.
+        [TestCase(TransitionTarget.Target)]
+        [TestCase(TransitionTarget.Source)]
+        [TestCase(TransitionTarget.Both)]
+        public void SkipAllReturnsWhenAWidgetsSkipNeverSettles(TransitionTarget animated)
+        {
+            FakeAnimation exit = new(1f);
+            VisibilityTransitionParams transition = animated switch
+            {
+                TransitionTarget.Target => EntryOnly(_entry),
+                TransitionTarget.Source => ExitOnly(exit),
+                _ => TwoSided(exit, _entry)
+            };
+            _a.SetVisibility(WidgetVisibility.Visible);
+            foreach (FakeScreen screen in new FakeScreen[] { _a, _b })
+            {
+                screen.EnableAnimation();
+                screen.SkipNeverSettles = true;
+            }
+            AwaitableProbe running = _harness.Run(transition, _a, _b);
+            Assert.That(running.IsComplete, Is.False, "arrange: the transition is animating");
+
+            AwaitableProbe skipAll = _harness.Watch(_harness.Manager.SkipAll(_harness.CreateSource().Token));
+            Assert.That(running.IsComplete, Is.True, "arrange: skipping finished the transition");
+            Assert.That(running.Exception, Is.Null, "arrange: the transition succeeded");
+            Assert.That(_harness.Manager.IsTransitionActive, Is.False, "arrange: the manager is idle");
+
+            Assert.That(skipAll.IsComplete, Is.True, "SkipAll returns once the queue has drained");
+            Assert.That(skipAll.Exception, Is.Null);
             AssertLaterTransitionAnimates();
         }
 

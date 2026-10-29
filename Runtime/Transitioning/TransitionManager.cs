@@ -264,17 +264,21 @@ namespace UIFramework.Transitioning
                 foreach (Entry pending in _pending)
                     pending.Skip = true;
 
+                // Not awaited: a skip that never settles would otherwise hold the latch for good. A transition
+                // stays active or pending until its animations end or it is cancelled, so waiting for the queue
+                // to drain covers the skips.
                 Params @params = _active.Params;
                 switch (@params.Transition.Target)
                 {
                     case TransitionTarget.Both:
-                        await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation(), @params.Target.SkipAnimation());
+                        _ = @params.Source.SkipAnimation();
+                        _ = @params.Target.SkipAnimation();
                         break;
                     case TransitionTarget.Target:
-                        await WhenAll.Await(cancellationToken, @params.Target.SkipAnimation());
+                        _ = @params.Target.SkipAnimation();
                         break;
                     case TransitionTarget.Source:
-                        await WhenAll.Await(cancellationToken, @params.Source.SkipAnimation());
+                        _ = @params.Source.SkipAnimation();
                         break;
                 }
 
