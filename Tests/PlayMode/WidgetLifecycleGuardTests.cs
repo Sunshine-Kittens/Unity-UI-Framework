@@ -3,6 +3,8 @@ using NUnit.Framework;
 using UIFramework.Core.Interfaces;
 using UIFramework.TestUtils;
 
+using UnityEngine;
+
 namespace UIFramework.Tests.PlayMode
 {
     // The lifecycle rule is enforced once, in WidgetBase, rather than restated by each backend. Both backends
@@ -39,6 +41,48 @@ namespace UIFramework.Tests.PlayMode
 
             Assert.That(() => fixture.Widget.Terminate(), Throws.InvalidOperationException,
                 "callers that cannot know the state guard before calling rather than the widget going quiet");
+        }
+
+        // A guard placed after any of the work still throws, so the throw alone does not show that it runs
+        // first. A rejected call must leave the widget exactly as it found it.
+        [Test]
+        public void ARejectedInitializeLeavesTheWidgetUntouched()
+        {
+            using UguiWidgetFixture fixture = new();
+            fixture.Widget.SetVisibility(WidgetVisibility.Visible);
+            RectTransform rect = fixture.Widget.RectTransform;
+            Vector2 home = rect.anchoredPosition;
+            rect.anchoredPosition = home + new Vector2(40f, -25f);
+            int initialized = 0;
+            fixture.Widget.Initialized += _ => initialized++;
+
+            Assert.That(() => fixture.Widget.Initialize(), Throws.InvalidOperationException);
+
+            Assert.That(initialized, Is.Zero);
+            Assert.That(fixture.Widget.Visibility, Is.EqualTo(WidgetVisibility.Visible));
+            Assert.That(fixture.Widget.gameObject.activeSelf, Is.True, "a shown widget stays shown");
+
+            fixture.Widget.Terminate();
+
+            Assert.That(rect.anchoredPosition, Is.EqualTo(home),
+                "teardown restores the pose captured by the first initialize, not one captured by the rejected call");
+        }
+
+        [Test]
+        public void ARejectedTerminateRaisesNoTerminating()
+        {
+            using UguiWidgetFixture fixture = new(initialize: false);
+            int terminating = 0;
+            fixture.Widget.Terminating += _ => terminating++;
+
+            Assert.That(() => fixture.Widget.Terminate(), Throws.InvalidOperationException);
+            Assert.That(terminating, Is.Zero, "a widget that was never initialized");
+
+            fixture.Widget.Initialize();
+            fixture.Widget.Terminate();
+            Assert.That(() => fixture.Widget.Terminate(), Throws.InvalidOperationException);
+
+            Assert.That(terminating, Is.EqualTo(1), "only the accepted terminate is announced");
         }
 
         [Test]
