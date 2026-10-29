@@ -419,8 +419,11 @@ namespace UIFramework.Core
             if (IsAnimating)
             {
                 VisibilityAnimationHandle handle = _animationHandle;
+                // Read before completing: completing runs the animation's tail inline, which returns the handle
+                // to the pool for the next animation to take.
+                Awaitable completed = handle.CompletedAwaitable;
                 handle.CompleteAnimation();
-                await handle.CompletedAwaitable;
+                await completed;
             }
         }
 
