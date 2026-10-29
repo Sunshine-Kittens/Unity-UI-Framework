@@ -1,0 +1,52 @@
+using System.Collections.Generic;
+
+using UIFramework.Collectors;
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
+
+using UnityEngine.Extension;
+
+namespace UIFramework.Controllers
+{
+    public class MenuController : ScreenController
+    {
+        protected IWidget BackgroundWidget { get; }
+
+        public MenuController(IWidget backgroundWidget, IEnumerable<IWidgetCollector<IScreen>> collectors, TimeMode timeMode)
+            : this(backgroundWidget, collectors, timeMode, null) { }
+
+        public MenuController(IWidget backgroundWidget, IEnumerable<IWidgetCollector<IScreen>> collectors,
+            TimeMode timeMode, ITimeSource timeSource)
+            : base(collectors, timeMode, timeSource)
+        {
+            BackgroundWidget = backgroundWidget;
+        }
+
+        protected override void OnEntering()
+        {
+            base.OnEntering();
+            AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Visible);
+            if (playable.IsValid())
+                BackgroundWidget.AnimateVisibility(WidgetVisibility.Visible, playable, InterruptBehavior.Immediate);
+            else
+                BackgroundWidget.SetVisibility(WidgetVisibility.Visible);
+        }
+
+        protected override void OnExited()
+        {
+            base.OnExited();
+            AnimationPlayable playable = GetBackgroundAnimation(WidgetVisibility.Hidden);
+            if (playable.IsValid())
+                BackgroundWidget.AnimateVisibility(WidgetVisibility.Hidden, playable, InterruptBehavior.Immediate);
+            else
+                BackgroundWidget.SetVisibility(WidgetVisibility.Hidden);
+        }
+
+        protected virtual AnimationPlayable GetBackgroundAnimation(WidgetVisibility visibility)
+        {
+            IAnimation animation = BackgroundWidget.GetDefaultAnimation(visibility);
+            if (animation == null) return default;
+            return animation.ToPlayable().WithTimeMode(TimeMode).Create();
+        }
+    }
+}

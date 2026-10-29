@@ -1,0 +1,71 @@
+using System.Threading;
+
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
+using UIFramework.Navigation;
+using UIFramework.Navigation.History;
+using UIFramework.Navigation.Interfaces;
+using UIFramework.Registry;
+using UIFramework.Transitioning;
+
+using UnityEngine;
+
+namespace UIFramework.Coordinators
+{
+    public class ReturnCoordinator<TWindow> : IReturnNavigator<TWindow>
+        where TWindow : class, IWindow
+    {
+        private readonly WindowNavigator<TWindow> _navigator;
+        private readonly IWidgetRegistry<TWindow> _registry;
+        private readonly History _history;
+        private readonly TransitionManager _transitionManager;
+
+        public ReturnCoordinator(WindowNavigator<TWindow> navigator, IWidgetRegistry<TWindow> registry,
+            History history, TransitionManager transitionManager)
+        {
+            _navigator = navigator;
+            _registry = registry;
+            _history = history;
+            _transitionManager = transitionManager;
+        }
+
+        public NavigateToResponse<TWindow> Return(CancellationToken cancellationToken = default)
+        {
+            if (_history.Count == 0)
+            {
+                return new NavigateToResponse<TWindow>(
+                    new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
+                );
+            }
+
+            using HistoryEventCollection events = _history.Pop();
+
+            if (!events.TryGetEvent(out NavigationHistoryEvent navEvent))
+                throw new System.InvalidOperationException("History entry is missing a NavigationHistoryEvent.");
+
+            if (!events.TryGetEvent(out TransitionHistoryEvent transitionEvent))
+                throw new System.InvalidOperationException("History entry is missing a TransitionHistoryEvent.");
+
+            if (!_registry.TryGet(navEvent.WindowType, out TWindow target))
+            {
+                return new NavigateToResponse<TWindow>(
+                    new NavigateToResult<TWindow>(false, _navigator.ActiveInstance, null), null
+                );
+            }
+
+            NavigateToResult<TWindow> result = _navigator.NavigateTo(target);
+            if (!result.Success)
+                return new NavigateToResponse<TWindow>(result, null);
+
+            // Transition hides its source and shows its target, exactly as on the forward path — after the
+            // navigator moves, Previous is the screen being left and Active the one being returned to. The
+            // inverted params swap the exit and entry refs. A generic ref re-resolves for its new visibility; an
+            // explicit ref, which an animated WithAnimation navigation records, keeps its fixed animation,
+            // so the returning screen shows with the hide animation it left with and the leaving screen hides with
+            // the animation it was shown with.
+            VisibilityTransitionParams transition = transitionEvent.Transition.Invert();
+            Awaitable awaitable = _transitionManager.Transition(transition, result.Previous, result.Active, cancellationToken);
+            return new NavigateToResponse<TWindow>(result, awaitable);
+        }
+    }
+}

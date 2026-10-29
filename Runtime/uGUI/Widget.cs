@@ -1,0 +1,195 @@
+﻿using System;
+
+using UIFramework.Animation;
+using UIFramework.Core;
+using UIFramework.Core.Interfaces;
+
+using UnityEngine;
+using UnityEngine.Extension;
+using UnityEngine.UI;
+
+namespace UIFramework.UGUI
+{
+    [RequireComponent(typeof(CanvasGroup), typeof(RectTransform))]
+    public class Widget : WidgetBase<Widget>
+    {
+        // WidgetBase
+        public override int LocalSortOrder => RectTransform.GetSiblingIndex();
+
+        public override int GlobalSortOrder => _rootUnderCanvas.GetSiblingIndex();
+        
+        public override int RenderSortOrder => _canvas != null ? _canvas.sortingOrder : 0;
+
+        public override float Opacity => CanvasGroup.alpha;
+
+        // uGUI Widget
+        // Components on this GameObject (see RequireComponent), so unlike the parent Canvas they outlive every
+        // lifecycle transition and are fetched lazily rather than acquired. Always read through the properties:
+        // the backing fields stay null until something does.
+        public RectTransform RectTransform
+        {
+            get
+            {
+                if (_rectTransform == null)
+                {
+                    _rectTransform = GetComponent<RectTransform>();
+                }
+                return _rectTransform;
+            }
+        }
+        private RectTransform _rectTransform = null;
+
+        public CanvasGroup CanvasGroup
+        {
+            get
+            {
+                if (_canvasGroup == null)
+                {
+                    _canvasGroup = GetComponent<CanvasGroup>();
+                }
+                return _canvasGroup;
+            }
+        }
+        private CanvasGroup _canvasGroup = null;
+        
+        private Canvas _canvas = null;
+        private Transform _rootUnderCanvas = null;
+        protected Vector3 _activeAnchoredPosition { get; private set; } = Vector3.zero;
+        private Quaternion _activeRotation = Quaternion.identity;
+        private Vector3 _activeScale = Vector3.one;
+        private float _restingOpacity = 1.0F;
+
+        // WidgetBase
+        protected sealed override void AcquireResources()
+        {
+            _canvas = GetComponentInParent<Canvas>();
+            if (_canvas == null)
+            {
+                throw new InvalidOperationException("Unable to initialize uGUI Widget, no parent Canvas found.");
+            }
+            Transform rootUnderCanvas = RectTransform;
+            while (rootUnderCanvas.parent != null && rootUnderCanvas.parent != _canvas.transform)
+            {
+                rootUnderCanvas =  rootUnderCanvas.parent;        
+            }
+            _rootUnderCanvas = rootUnderCanvas;
+            // The resting pose the animations displace and ResetAnimatedProperties restores. Terminate
+            // restores the pose before releasing, so a re-initialize captures clean values here.
+            _activeAnchoredPosition = RectTransform.anchoredPosition;
+            _activeRotation = RectTransform.localRotation;
+            _activeScale = RectTransform.localScale;
+        }
+
+        protected sealed override void ReleaseResources()
+        {
+            _canvas = null;
+            _rootUnderCanvas = null;
+            _activeAnchoredPosition = Vector3.zero;
+            _activeRotation = Quaternion.identity;
+            _activeScale = Vector3.one;
+        }
+
+        public override IAnimation GetDefaultAnimation(WidgetVisibility visibility)
+        {
+            return GetGenericAnimation(GenericAnimation.Fade, visibility);
+        }
+
+        public override IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)
+        {
+            Canvas canvas = GetComponentInParent<Canvas>(true);
+            RectTransform canvasRectTransform = canvas.transform as RectTransform;
+            switch (visibility)
+            {
+                case WidgetVisibility.Visible:
+                    return new ShowWidgetAnimation(canvasRectTransform, RectTransform, _activeAnchoredPosition, CanvasGroup, genericAnimation);
+                case WidgetVisibility.Hidden:
+                    return new HideWidgetAnimation(canvasRectTransform, RectTransform, _activeAnchoredPosition, CanvasGroup, genericAnimation);
+            }
+            throw new InvalidOperationException("Widget visibility is unsupported.");
+        }
+
+        // Restores everything the generic animations mutate: alpha, anchored position, rotation and
+        // scale. Alpha goes back to the last externally set opacity, not to 1 — the opacity a group applies
+        // through SetOpacity must survive an animation ending.
+        public override void ResetAnimatedProperties()
+        {
+            CanvasGroup.alpha = _restingOpacity;
+            RectTransform.anchoredPosition = _activeAnchoredPosition;
+            RectTransform.localRotation = _activeRotation;
+            RectTransform.localScale = _activeScale;
+        }
+
+        public sealed override void SetLocalSortOrder(int sortOrder)
+        {
+            RectTransform.SetSiblingIndex(sortOrder);
+        }
+
+        public sealed override void SetGlobalSortOrder(int sortOrder)
+        {
+            _rootUnderCanvas.SetSiblingIndex(sortOrder);
+        }
+
+        public sealed override void SetRenderSortOrder(int sortOrder)
+        {
+            _canvas.sortingOrder = sortOrder;
+        }
+
+        public sealed override void SetOpacity(float opacity)
+        {
+            _restingOpacity = opacity;
+            CanvasGroup.alpha = opacity;
+        }    
+
+        // WidgetBase
+        protected sealed override void SortAgainst(IWidget target, int direction)
+        {
+            if (target is Widget uguiWidget)
+            {
+                if (uguiWidget.RectTransform.parent == RectTransform.parent)
+                {
+                    SetLocalSortOrder(uguiWidget.LocalSortOrder + direction);
+                }
+                else if (uguiWidget._canvas == _canvas)
+                {
+                    SetGlobalSortOrder(uguiWidget.GlobalSortOrder + direction);
+                }
+                else
+                {
+                    SetRenderSortOrder(uguiWidget.RenderSortOrder + direction);
+                }
+            }
+            else
+            {
+                SetRenderSortOrder(target.RenderSortOrder + direction);
+            }
+        }
+        
+        protected sealed override void OnIsEnabledUpdated(bool value)
+        {
+            CanvasGroup.interactable = value;
+        }
+
+        protected sealed override void OnIsInteractableUpdated(bool value)
+        {
+            if (value)
+            {
+                CanvasGroup.blocksRaycasts = true;
+            }
+            else
+            {
+                CanvasGroup.blocksRaycasts = false;
+            }
+        }
+        
+        protected sealed override void SetActive(bool active)
+        {
+            gameObject.SetActive(active);
+        }
+
+        // uGUI Widget
+        protected void RebuildLayout(RectTransform target = null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(target != null ? target : RectTransform);
+        }
+    }
+}

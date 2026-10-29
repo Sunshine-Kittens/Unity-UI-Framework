@@ -1,0 +1,19 @@
+{
+    "name": "UIFramework.TestUtils",
+    "rootNamespace": "UIFramework.TestUtils",
+    "references": [
+        "GUID:499192133d8ba2b41ad7f052c3908382",
+        "GUID:d72495b6350732a4e9fad5880c094132"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
