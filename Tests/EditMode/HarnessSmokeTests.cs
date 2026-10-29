@@ -38,16 +38,14 @@ namespace UIFramework.Tests.EditMode
         [Test]
         public void InitializeCollectsAndInitializesScreens()
         {
-            // Visible beforehand, so the Hidden assert below discriminates the controller's hook rather than
-            // restating the fake's initial state.
-            _a.SetVisibility(WidgetVisibility.Visible);
-
             _controller.Initialize();
 
             Assert.That(_controller.IsInitialized, Is.True);
             Assert.That(_a.State, Is.EqualTo(WidgetState.Initialized));
             Assert.That(_b.State, Is.EqualTo(WidgetState.Initialized));
-            Assert.That(_a.Visibility, Is.EqualTo(WidgetVisibility.Hidden), "OnWidgetInitialize hides screens");
+            // Checked through the recorded call: Initialize already leaves the screen hidden, so Visibility cannot
+            // show the controller's hide.
+            Assert.That(_a.Calls, Does.Contain("SetVisibility:Hidden"), "OnWidgetInitialize hides screens");
         }
 
         [Test]
@@ -147,8 +145,8 @@ namespace UIFramework.Tests.EditMode
             _controller.CreateNavigateToRequest<FakeScreenA>().Execute();
             _controller.PushGroup();
 
-            // Matched on the message: several navigation paths throw InvalidOperationException, and the
-            // fake's navigator methods are unguarded, so the type alone does not pin the occupancy guard.
+            // Matched on the message: without the guard the overlay still fails, with the screen refusing a
+            // second navigator, so the exception type alone does not pin the occupancy guard.
             Assert.That(() => _controller.CreateNavigateToRequest<FakeScreenA>().Execute(),
                 Throws.InvalidOperationException.With.Message.Contains("already held by another group"));
         }

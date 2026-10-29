@@ -37,13 +37,19 @@ namespace UIFramework.TestUtils
         public bool CanInitialize => State != WidgetState.Initialized;
         public bool CanTerminate => State == WidgetState.Initialized;
 
-        public IWidget Parent => null;
+        public IWidget Parent => _parent;
+        private FakeScreen _parent;
+
         public int ChildCount => _children.Count;
         private readonly List<FakeScreen> _children = new();
 
         // Nested widgets. A hierarchy collector registers a parent and its children in their own right, so the
         // registry holds both while only the parent's cascade actually drives the child.
-        public void AddChild(FakeScreen child) => _children.Add(child);
+        public void AddChild(FakeScreen child)
+        {
+            _children.Add(child);
+            child._parent = this;
+        }
 
         public WidgetVisibility Visibility { get; private set; } = WidgetVisibility.Hidden;
         public bool IsVisible => Visibility == WidgetVisibility.Visible && Opacity > 0f;
@@ -85,8 +91,8 @@ namespace UIFramework.TestUtils
         public void RaiseHiding() { Calls.Add(nameof(RaiseHiding)); Hiding?.Invoke(this); }
         public void RaiseHidden() { Calls.Add(nameof(RaiseHidden)); Hidden?.Invoke(this); }
 
-        // Mirrors WidgetBase: guarded on entry, cascading to children that can take the transition, and
-        // raising Terminating before teardown rather than after.
+        // Mirrors WidgetBase: guarded on entry, hidden silently by both transitions, cascading to children that
+        // can take the transition, and raising Terminating before teardown rather than after.
         public void Initialize()
         {
             if (!CanInitialize)
@@ -96,6 +102,7 @@ namespace UIFramework.TestUtils
             if (FailInitialize)
                 throw new InvalidOperationException($"{GetType().Name} failed to initialize.");
 
+            Visibility = WidgetVisibility.Hidden;
             State = WidgetState.Initialized;
             foreach (FakeScreen child in _children)
             {
@@ -122,6 +129,10 @@ namespace UIFramework.TestUtils
             _animationCts?.Cancel();
             _animationCts = null;
             _currentRun = null;
+            // Both flags back at their defaults for the next lifecycle.
+            Visibility = WidgetVisibility.Hidden;
+            _isEnabled.Reset(true);
+            _isInteractable.Reset(true);
             State = WidgetState.Terminated;
             Terminated?.Invoke(this);
         }
@@ -180,8 +191,22 @@ namespace UIFramework.TestUtils
         public bool IsValidData(object data) => AcceptsData;
         public void SetData(object data) { LastData = data; Calls.Add(nameof(SetData)); }
 
-        public void SetNavigator(IScreenNavigator navigator) { Navigator = navigator; Calls.Add(nameof(SetNavigator)); }
-        public void ClearNavigator() { Navigator = null; Calls.Add(nameof(ClearNavigator)); }
+        // Guarded as the real screens are: a screen belongs to one navigator at a time.
+        public void SetNavigator(IScreenNavigator navigator)
+        {
+            if (Navigator != null)
+                throw new InvalidOperationException("Cannot set the navigator while it is already set.");
+            Navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
+            Calls.Add(nameof(SetNavigator));
+        }
+
+        public void ClearNavigator()
+        {
+            if (Navigator == null)
+                throw new InvalidOperationException("Cannot clear the navigator while it is not set.");
+            Navigator = null;
+            Calls.Add(nameof(ClearNavigator));
+        }
 
         // Null by default — consumers treat "no default animation" as "show instantly". Assign one to check
         // whether navigation resolves a target's default entry animation.
