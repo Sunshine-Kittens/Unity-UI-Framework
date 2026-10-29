@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 
 using UIFramework.Animation;
 using UIFramework.Core.Interfaces;
 using UIFramework.Navigation.Interfaces;
 
-using UnityEngine;
 using UnityEngine.Extension;
 
 namespace UIFramework.TestUtils
@@ -16,7 +14,9 @@ namespace UIFramework.TestUtils
     //
     // Abstract because WidgetRegistry is Type-keyed: two instances of one concrete type cannot co-exist in a
     // registry, so tests use the distinct subclasses below.
-    public abstract class FakeScreen : IScreen
+    //
+    // Animation members throw unless EnableAnimation() is called.
+    public abstract partial class FakeScreen : IScreen
     {
         public readonly List<string> Calls = new();
         public readonly List<float> Ticks = new();
@@ -47,7 +47,7 @@ namespace UIFramework.TestUtils
 
         public WidgetVisibility Visibility { get; private set; } = WidgetVisibility.Hidden;
         public bool IsVisible => Visibility == WidgetVisibility.Visible && Opacity > 0f;
-        public bool IsAnimating => false;
+        public bool IsAnimating => _currentRun != null && _currentRun.State == FakeAnimationRun.RunState.Running;
 
         public int LocalSortOrder { get; private set; }
         public int GlobalSortOrder { get; private set; }
@@ -119,6 +119,9 @@ namespace UIFramework.TestUtils
                 if (child.CanTerminate)
                     child.Terminate();
             }
+            _animationCts?.Cancel();
+            _animationCts = null;
+            _currentRun = null;
             State = WidgetState.Terminated;
             Terminated?.Invoke(this);
         }
@@ -127,7 +130,19 @@ namespace UIFramework.TestUtils
         {
             Calls.Add($"{nameof(SetVisibility)}:{visibility}");
             if (visibility == Visibility)
+            {
+                if (IsAnimating)
+                    _ = SkipAnimation();
                 return;
+            }
+
+            // Mirrors WidgetBase: a different visibility cancels the running animation, which unwinds inline.
+            if (IsAnimating)
+            {
+                _animationCts?.Cancel();
+                Calls.Add(nameof(ResetAnimatedProperties));
+                _currentRun = null;
+            }
 
             Visibility = visibility;
             if (!AutoRaiseVisibilityEvents)
@@ -176,25 +191,19 @@ namespace UIFramework.TestUtils
         public IAnimation GetDefaultAnimation(WidgetVisibility visibility)
             => visibility == WidgetVisibility.Visible ? DefaultVisibleAnimation : DefaultHiddenAnimation;
 
-        public IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility) => null;
+        // Null unless assigned, as for the default animations. Assign per visibility to check which widget and
+        // visibility a generic animation reference is resolved against.
+        private readonly Dictionary<(GenericAnimation, WidgetVisibility), IAnimation> _genericAnimations = new();
+
+        public void SetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility,
+            IAnimation animation) => _genericAnimations[(genericAnimation, visibility)] = animation;
+
+        public IAnimation GetGenericAnimation(GenericAnimation genericAnimation, WidgetVisibility visibility)
+            => _genericAnimations.TryGetValue((genericAnimation, visibility), out IAnimation animation)
+                ? animation
+                : null;
 
         public void ResetAnimatedProperties() => Calls.Add(nameof(ResetAnimatedProperties));
-
-        // Animation is driven by the player loop, which does not run in edit mode. Throwing names the problem
-        // rather than leaving a test to fail on a null Awaitable.
-        private const string _AnimationUnsupported =
-            "FakeScreen cannot animate: animation is player-loop driven. Use a play-mode test with real widgets.";
-
-        public VisibilityAnimationBuilder AnimateVisibility(WidgetVisibility visibility)
-            => throw new NotSupportedException(_AnimationUnsupported);
-
-        public Awaitable AnimateVisibility(WidgetVisibility visibility, AnimationPlayable playable,
-            InterruptBehavior interruptBehavior = InterruptBehavior.Immediate, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException(_AnimationUnsupported);
-
-        public Awaitable SkipAnimation() => throw new NotSupportedException(_AnimationUnsupported);
-        public Awaitable RewindAnimation(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException(_AnimationUnsupported);
     }
 
     public sealed class FakeScreenA : FakeScreen { }
