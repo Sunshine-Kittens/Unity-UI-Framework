@@ -460,14 +460,22 @@ namespace UIFramework.UIToolkit
             }
         }
 
+        // The document's events still call a handler removed during the same broadcast, so a window that another
+        // handler already terminated (a screen ending its nested window) is called here once more.
         protected virtual void OnDocumentDisabled() 
         {
-            Terminate();
+            if (State == BehaviourState.Initialized)
+            {
+                Terminate();
+            }
         }
 
         private void OnDocumentDestroyed()
         {
-            Terminate();
+            if (State == BehaviourState.Initialized)
+            {
+                Terminate();
+            }
         }
         
         private void OnIsEnabledUpdated(bool value)
